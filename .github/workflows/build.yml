@@ -1,0 +1,46 @@
+name: Build Native Android APK (Kotlin + Compose + MapLibre + SCS_Map_Tiles)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK 34
+        run: |
+          yes | sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Download Unicor-p/SCS_Map_Tiles ETS2_Map_1.48.zip into APK Assets
+        run: |
+          mkdir -p app/src/main/assets/scs_map
+          echo "Downloading ETS2_Map_1.48.zip from Unicor-p/SCS_Map_Tiles..."
+          curl -sL "https://github.com/Unicor-p/SCS_Map_Tiles/releases/download/1.48.2.6/ETS2_Map_1.48.zip" -o app/src/main/assets/scs_map/ETS2_Map_1.48.zip
+          ls -lh app/src/main/assets/scs_map/ETS2_Map_1.48.zip
+
+      - name: Install Gradle 8.7 and Build Debug APK
+        run: |
+          curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          /tmp/gradle-8.7/bin/gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Upload Compiled APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ets2-trucksim-gps-debug-apk
+          path: app/build/outputs/apk/debug/*.apk

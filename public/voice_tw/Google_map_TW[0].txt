@@ -1,0 +1,47 @@
+TURN_LEFT.wav - 向左轉
+KEEP_LEFT_AND_TAKE_EXIT_1.wav - 靠左下交流道
+ENTER_ROUNDABOUT_TAKE_1ST_EXIT.wav - 進入圓環，在圓環處，於第一個出口下交流道
+KEEP_LEFT_AND_TAKE_EXIT_2.wav - 靠左下交流道
+KEEP_RIGHT_AND_TAKE_EXIT_1.wav - 靠右行下交流道
+KEEP_SLIGHT_RIGHT_1.wav - 微靠右行
+HEAD_SOUTHEAST.wav - 往東南
+HEAD_EAST.wav - 往東
+ENTER_ROUNDABOUT_TAKE_2ND_EXIT.wav - 進入圓環，在圓環處，於第二個出口下交流道
+IN_100_METERS_TURN_LEFT.wav - 在 100 公尺處，向左轉
+KEEP_SLIGHT_LEFT_1.wav - 微靠左行
+KEEP_SLIGHT_LEFT_2.wav - 微靠左行
+YOU_HAVE_ARRIVED_AT_YOUR_DESTINATION.wav - 您已到達目的地
+SPEED_WARNING_BEEP_1.wav - 超速警示音（嘟嘟兩聲）
+ENTER_ROUNDABOUT_TAKE_3RD_EXIT.wav - 進入圓環，在圓環處，於第三個出口下交流道
+KEEP_RIGHT_AND_TAKE_EXIT_2.wav - 靠右行下交流道
+CONTINUE_STRAIGHT_1.wav - 繼續直行
+ENTER_ROUNDABOUT_TAKE_5TH_EXIT.wav - 進入圓環，在圓環處，於第五個出口下交流道
+KEEP_SLIGHT_RIGHT_2.wav - 微靠右行
+KEEP_SLIGHT_LEFT_3.wav - 微靠左行
+HEAD_SOUTHWEST.wav - 往西南
+CONTINUE_STRAIGHT_2.wav - 繼續直行
+PLEASE_CONTINUE_STRAIGHT_1.wav - 請繼續直行
+SLIGHT_LEFT.wav - 微靠左
+KEEP_SLIGHT_RIGHT_3.wav - 微靠右行
+ENTER_ROUNDABOUT_TAKE_6TH_EXIT.wav - 進入圓環，在圓環處，於第六個出口下交流道
+MAKE_A_U_TURN.wav - 迴轉
+HEAD_WEST.wav - 往西
+IN_300_METERS_TURN_RIGHT_1.wav - 在 300 公尺處，向右轉
+HEAD_NORTH.wav - 往北
+IN_300_METERS_TURN_RIGHT_2.wav - 在 300 公尺處，向右轉
+KEEP_RIGHT_AND_TAKE_EXIT_3.wav - 靠右行下交流道
+HEAD_NORTHWEST.wav - 往西北
+EXIT_ROUNDABOUT.wav - 駛出圓環
+ENTER_ROUNDABOUT_TAKE_4TH_EXIT.wav - 進入圓環，在圓環處，於第四個出口下交流道
+KEEP_LEFT_AND_TAKE_EXIT_3.wav - 靠左下交流道
+AND_THEN_CONTINUE_STRAIGHT.wav - 然後，繼續直行
+IN_300_METERS_TURN_LEFT_1.wav - 在 300 公尺處，向左轉
+IN_300_METERS_TURN_LEFT_2.wav - 在 300 公尺處，向左轉
+TURN_RIGHT.wav - 向右轉
+HEAD_SOUTH.wav - 往南
+SPEED_WARNING_BEEP_2.wav - 超速提示音（嘟嘟兩聲）
+PLEASE_CONTINUE_STRAIGHT_2.wav - 請繼續直行
+KEEP_SLIGHT_RIGHT_4.wav - 微靠右行
+HEAD_NORTHEAST.wav - 往東北
+RECOMPUTING_CHIME.wav - 重新計算路線提示音（叮咚）
+IN_100_METERS_TURN_RIGHT.wav - 在 100 公尺處，向右轉

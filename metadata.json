@@ -1,0 +1,7 @@
+{
+  "name": "太空彈球防衛戰 (Cosmic Ball Defense)",
+  "description": "Android 原生太空彈球防衛遊戲與即時網頁試玩模擬器，支援 SurfaceView Canvas 自繪、蛇形行軍、技能抽卡與 GitHub Actions APK 打包",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

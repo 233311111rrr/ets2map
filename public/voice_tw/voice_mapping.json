@@ -1,0 +1,431 @@
+{
+  "packName": "Google Map 台灣語音模組 2 (ETS2 Google_map_TW[0])",
+  "version": "2.1.0",
+  "directory": "app/src/main/assets/voice_tw/",
+  "fallbackPolicy": "SKIP_OR_ALERT_ONLY_NO_SYNTHETIC_TTS",
+  "entries": [
+    {
+      "fileName": "TURN_LEFT.wav",
+      "prefixedFileName": "turn_left_TURN_LEFT.wav",
+      "originalFileName": "turn_left.wav",
+      "eventKey": "TURN_LEFT",
+      "descriptionZh": "向左轉",
+      "triggerDistanceMeters": 30,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_LEFT_AND_TAKE_EXIT_1.wav",
+      "prefixedFileName": "compound_exit_left_KEEP_LEFT_AND_TAKE_EXIT.wav",
+      "originalFileName": "compound_exit_left.wav",
+      "eventKey": "KEEP_LEFT_AND_TAKE_EXIT_1",
+      "descriptionZh": "靠左下交流道",
+      "triggerDistanceMeters": 180,
+      "enabled": true
+    },
+    {
+      "fileName": "ENTER_ROUNDABOUT_TAKE_1ST_EXIT.wav",
+      "prefixedFileName": "roundabout_1_ENTER_ROUNDABOUT_TAKE_1ST_EXIT.wav",
+      "originalFileName": "roundabout_1.wav",
+      "eventKey": "ENTER_ROUNDABOUT_TAKE_1ST_EXIT",
+      "descriptionZh": "進入圓環，在圓環處，於第一個出口下交流道",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_LEFT_AND_TAKE_EXIT_2.wav",
+      "prefixedFileName": "and_then_exit_left_KEEP_LEFT_AND_TAKE_EXIT.wav",
+      "originalFileName": "and_then_exit_left.wav",
+      "eventKey": "KEEP_LEFT_AND_TAKE_EXIT_2",
+      "descriptionZh": "靠左下交流道",
+      "triggerDistanceMeters": 100,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_RIGHT_AND_TAKE_EXIT_1.wav",
+      "prefixedFileName": "exit_right_KEEP_RIGHT_AND_TAKE_EXIT.wav",
+      "originalFileName": "exit_right.wav",
+      "eventKey": "KEEP_RIGHT_AND_TAKE_EXIT_1",
+      "descriptionZh": "靠右行下交流道",
+      "triggerDistanceMeters": 150,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_SLIGHT_RIGHT_1.wav",
+      "prefixedFileName": "keep_right_KEEP_SLIGHT_RIGHT.wav",
+      "originalFileName": "keep_right.wav",
+      "eventKey": "KEEP_SLIGHT_RIGHT_1",
+      "descriptionZh": "微靠右行",
+      "triggerDistanceMeters": 150,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_SOUTHEAST.wav",
+      "prefixedFileName": "start_6_SOUTHEAST.wav",
+      "originalFileName": "start_6.wav",
+      "eventKey": "HEAD_SOUTHEAST",
+      "descriptionZh": "往東南",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_EAST.wav",
+      "prefixedFileName": "start_1_EAST.wav",
+      "originalFileName": "start_1.wav",
+      "eventKey": "HEAD_EAST",
+      "descriptionZh": "往東",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "ENTER_ROUNDABOUT_TAKE_2ND_EXIT.wav",
+      "prefixedFileName": "roundabout_2_ENTER_ROUNDABOUT_TAKE_2ND_EXIT.wav",
+      "originalFileName": "roundabout_2.wav",
+      "eventKey": "ENTER_ROUNDABOUT_TAKE_2ND_EXIT",
+      "descriptionZh": "進入圓環，在圓環處，於第二個出口下交流道",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "IN_100_METERS_TURN_LEFT.wav",
+      "prefixedFileName": "and_then_turn_left_IN_100_METERS_TURN_LEFT.wav",
+      "originalFileName": "and_then_turn_left.wav",
+      "eventKey": "IN_100_METERS_TURN_LEFT",
+      "descriptionZh": "在 100 公尺處，向左轉",
+      "triggerDistanceMeters": 100,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_SLIGHT_LEFT_1.wav",
+      "prefixedFileName": "and_then_keep_left_KEEP_SLIGHT_LEFT.wav",
+      "originalFileName": "and_then_keep_left.wav",
+      "eventKey": "KEEP_SLIGHT_LEFT_1",
+      "descriptionZh": "微靠左行",
+      "triggerDistanceMeters": 100,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_SLIGHT_LEFT_2.wav",
+      "prefixedFileName": "compound_keep_left_KEEP_SLIGHT_LEFT.wav",
+      "originalFileName": "compound_keep_left.wav",
+      "eventKey": "KEEP_SLIGHT_LEFT_2",
+      "descriptionZh": "微靠左行",
+      "triggerDistanceMeters": 150,
+      "enabled": true
+    },
+    {
+      "fileName": "YOU_HAVE_ARRIVED_AT_YOUR_DESTINATION.wav",
+      "prefixedFileName": "finish_1_YOU_HAVE_ARRIVED_AT_YOUR_DESTINATION.wav",
+      "originalFileName": "finish_1.wav",
+      "eventKey": "YOU_HAVE_ARRIVED_AT_YOUR_DESTINATION",
+      "descriptionZh": "您已到達目的地",
+      "triggerDistanceMeters": 15,
+      "enabled": true
+    },
+    {
+      "fileName": "SPEED_WARNING_BEEP_1.wav",
+      "prefixedFileName": "speed_warning_SPEED_WARNING_BEEP.wav",
+      "originalFileName": "speed_warning.wav",
+      "eventKey": "SPEED_WARNING_BEEP_1",
+      "descriptionZh": "超速警示音（嘟嘟兩聲）",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "ENTER_ROUNDABOUT_TAKE_3RD_EXIT.wav",
+      "prefixedFileName": "roundabout_3_ENTER_ROUNDABOUT_TAKE_3RD_EXIT.wav",
+      "originalFileName": "roundabout_3.wav",
+      "eventKey": "ENTER_ROUNDABOUT_TAKE_3RD_EXIT",
+      "descriptionZh": "進入圓環，在圓環處，於第三個出口下交流道",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_RIGHT_AND_TAKE_EXIT_2.wav",
+      "prefixedFileName": "and_then_exit_right_KEEP_RIGHT_AND_TAKE_EXIT.wav",
+      "originalFileName": "and_then_exit_right.wav",
+      "eventKey": "KEEP_RIGHT_AND_TAKE_EXIT_2",
+      "descriptionZh": "靠右行下交流道",
+      "triggerDistanceMeters": 100,
+      "enabled": true
+    },
+    {
+      "fileName": "CONTINUE_STRAIGHT_1.wav",
+      "prefixedFileName": "go_straight_1_CONTINUE_STRAIGHT.wav",
+      "originalFileName": "go_straight_1.wav",
+      "eventKey": "CONTINUE_STRAIGHT_1",
+      "descriptionZh": "繼續直行",
+      "triggerDistanceMeters": 400,
+      "enabled": true
+    },
+    {
+      "fileName": "ENTER_ROUNDABOUT_TAKE_5TH_EXIT.wav",
+      "prefixedFileName": "roundabout_5_ENTER_ROUNDABOUT_TAKE_5TH_EXIT.wav",
+      "originalFileName": "roundabout_5.wav",
+      "eventKey": "ENTER_ROUNDABOUT_TAKE_5TH_EXIT",
+      "descriptionZh": "進入圓環，在圓環處，於第五個出口下交流道",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_SLIGHT_RIGHT_2.wav",
+      "prefixedFileName": "and_then_keep_right_KEEP_SLIGHT_RIGHT.wav",
+      "originalFileName": "and_then_keep_right.wav",
+      "eventKey": "KEEP_SLIGHT_RIGHT_2",
+      "descriptionZh": "微靠右行",
+      "triggerDistanceMeters": 100,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_SLIGHT_LEFT_3.wav",
+      "prefixedFileName": "keep_left_KEEP_SLIGHT_LEFT.wav",
+      "originalFileName": "keep_left.wav",
+      "eventKey": "KEEP_SLIGHT_LEFT_3",
+      "descriptionZh": "微靠左行",
+      "triggerDistanceMeters": 150,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_SOUTHWEST.wav",
+      "prefixedFileName": "start_7_SOUTHWEST.wav",
+      "originalFileName": "start_7.wav",
+      "eventKey": "HEAD_SOUTHWEST",
+      "descriptionZh": "往西南",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "CONTINUE_STRAIGHT_2.wav",
+      "prefixedFileName": "compound_go_straight_2_CONTINUE_STRAIGHT.wav",
+      "originalFileName": "compound_go_straight_2.wav",
+      "eventKey": "CONTINUE_STRAIGHT_2",
+      "descriptionZh": "繼續直行",
+      "triggerDistanceMeters": 250,
+      "enabled": true
+    },
+    {
+      "fileName": "PLEASE_CONTINUE_STRAIGHT_1.wav",
+      "prefixedFileName": "go_straight_2_PLEASE_CONTINUE_STRAIGHT.wav",
+      "originalFileName": "go_straight_2.wav",
+      "eventKey": "PLEASE_CONTINUE_STRAIGHT_1",
+      "descriptionZh": "請繼續直行",
+      "triggerDistanceMeters": 600,
+      "enabled": true
+    },
+    {
+      "fileName": "SLIGHT_LEFT.wav",
+      "prefixedFileName": "compound_turn_left_SLIGHT_LEFT.wav",
+      "originalFileName": "compound_turn_left.wav",
+      "eventKey": "SLIGHT_LEFT",
+      "descriptionZh": "微靠左",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_SLIGHT_RIGHT_3.wav",
+      "prefixedFileName": "compound_turn_right_KEEP_SLIGHT_RIGHT.wav",
+      "originalFileName": "compound_turn_right.wav",
+      "eventKey": "KEEP_SLIGHT_RIGHT_3",
+      "descriptionZh": "微靠右行",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "ENTER_ROUNDABOUT_TAKE_6TH_EXIT.wav",
+      "prefixedFileName": "roundabout_6_ENTER_ROUNDABOUT_TAKE_6TH_EXIT.wav",
+      "originalFileName": "roundabout_6.wav",
+      "eventKey": "ENTER_ROUNDABOUT_TAKE_6TH_EXIT",
+      "descriptionZh": "進入圓環，在圓環處，於第六個出口下交流道",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "MAKE_A_U_TURN.wav",
+      "prefixedFileName": "u_turn_1_MAKE_A_U_TURN.wav",
+      "originalFileName": "u_turn_1.wav",
+      "eventKey": "MAKE_A_U_TURN",
+      "descriptionZh": "迴轉",
+      "triggerDistanceMeters": 50,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_WEST.wav",
+      "prefixedFileName": "start_8_WEST.wav",
+      "originalFileName": "start_8.wav",
+      "eventKey": "HEAD_WEST",
+      "descriptionZh": "往西",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "IN_300_METERS_TURN_RIGHT_1.wav",
+      "prefixedFileName": "prepare_exit_right_IN_300_METERS_TURN_RIGHT.wav",
+      "originalFileName": "prepare_exit_right.wav",
+      "eventKey": "IN_300_METERS_TURN_RIGHT_1",
+      "descriptionZh": "在 300 公尺處，向右轉",
+      "triggerDistanceMeters": 300,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_NORTH.wav",
+      "prefixedFileName": "start_2_NORTH.wav",
+      "originalFileName": "start_2.wav",
+      "eventKey": "HEAD_NORTH",
+      "descriptionZh": "往北",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "IN_300_METERS_TURN_RIGHT_2.wav",
+      "prefixedFileName": "prepare_turn_right_IN_300_METERS_TURN_RIGHT.wav",
+      "originalFileName": "prepare_turn_right.wav",
+      "eventKey": "IN_300_METERS_TURN_RIGHT_2",
+      "descriptionZh": "在 300 公尺處，向右轉",
+      "triggerDistanceMeters": 300,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_RIGHT_AND_TAKE_EXIT_3.wav",
+      "prefixedFileName": "compound_exit_right_KEEP_RIGHT_AND_TAKE_EXIT.wav",
+      "originalFileName": "compound_exit_right.wav",
+      "eventKey": "KEEP_RIGHT_AND_TAKE_EXIT_3",
+      "descriptionZh": "靠右行下交流道",
+      "triggerDistanceMeters": 180,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_NORTHWEST.wav",
+      "prefixedFileName": "start_4_NORTHWEST.wav",
+      "originalFileName": "start_4.wav",
+      "eventKey": "HEAD_NORTHWEST",
+      "descriptionZh": "往西北",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "EXIT_ROUNDABOUT.wav",
+      "prefixedFileName": "exit_now_EXIT_ROUNDABOUT.wav",
+      "originalFileName": "exit_now.wav",
+      "eventKey": "EXIT_ROUNDABOUT",
+      "descriptionZh": "駛出圓環",
+      "triggerDistanceMeters": 25,
+      "enabled": true
+    },
+    {
+      "fileName": "ENTER_ROUNDABOUT_TAKE_4TH_EXIT.wav",
+      "prefixedFileName": "roundabout_4_ENTER_ROUNDABOUT_TAKE_4TH_EXIT.wav",
+      "originalFileName": "roundabout_4.wav",
+      "eventKey": "ENTER_ROUNDABOUT_TAKE_4TH_EXIT",
+      "descriptionZh": "進入圓環，在圓環處，於第四個出口下交流道",
+      "triggerDistanceMeters": 120,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_LEFT_AND_TAKE_EXIT_3.wav",
+      "prefixedFileName": "exit_left_KEEP_LEFT_AND_TAKE_EXIT.wav",
+      "originalFileName": "exit_left.wav",
+      "eventKey": "KEEP_LEFT_AND_TAKE_EXIT_3",
+      "descriptionZh": "靠左下交流道",
+      "triggerDistanceMeters": 150,
+      "enabled": true
+    },
+    {
+      "fileName": "AND_THEN_CONTINUE_STRAIGHT.wav",
+      "prefixedFileName": "and_then_go_straight_AND_THEN_CONTINUE_STRAIGHT.wav",
+      "originalFileName": "and_then_go_straight.wav",
+      "eventKey": "AND_THEN_CONTINUE_STRAIGHT",
+      "descriptionZh": "然後，繼續直行",
+      "triggerDistanceMeters": 100,
+      "enabled": true
+    },
+    {
+      "fileName": "IN_300_METERS_TURN_LEFT_1.wav",
+      "prefixedFileName": "prepare_exit_left_IN_300_METERS_TURN_LEFT.wav",
+      "originalFileName": "prepare_exit_left.wav",
+      "eventKey": "IN_300_METERS_TURN_LEFT_1",
+      "descriptionZh": "在 300 公尺處，向左轉",
+      "triggerDistanceMeters": 300,
+      "enabled": true
+    },
+    {
+      "fileName": "IN_300_METERS_TURN_LEFT_2.wav",
+      "prefixedFileName": "prepare_turn_left_IN_300_METERS_TURN_LEFT.wav",
+      "originalFileName": "prepare_turn_left.wav",
+      "eventKey": "IN_300_METERS_TURN_LEFT_2",
+      "descriptionZh": "在 300 公尺處，向左轉",
+      "triggerDistanceMeters": 300,
+      "enabled": true
+    },
+    {
+      "fileName": "TURN_RIGHT.wav",
+      "prefixedFileName": "turn_right_TURN_RIGHT.wav",
+      "originalFileName": "turn_right.wav",
+      "eventKey": "TURN_RIGHT",
+      "descriptionZh": "向右轉",
+      "triggerDistanceMeters": 30,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_SOUTH.wav",
+      "prefixedFileName": "start_5_SOUTH.wav",
+      "originalFileName": "start_5.wav",
+      "eventKey": "HEAD_SOUTH",
+      "descriptionZh": "往南",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "SPEED_WARNING_BEEP_2.wav",
+      "prefixedFileName": "speed_signal_SPEED_WARNING_BEEP.wav",
+      "originalFileName": "speed_signal.wav",
+      "eventKey": "SPEED_WARNING_BEEP_2",
+      "descriptionZh": "超速提示音（嘟嘟兩聲）",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "PLEASE_CONTINUE_STRAIGHT_2.wav",
+      "prefixedFileName": "compound_go_straight_1_PLEASE_CONTINUE_STRAIGHT.wav",
+      "originalFileName": "compound_go_straight_1.wav",
+      "eventKey": "PLEASE_CONTINUE_STRAIGHT_2",
+      "descriptionZh": "請繼續直行",
+      "triggerDistanceMeters": 500,
+      "enabled": true
+    },
+    {
+      "fileName": "KEEP_SLIGHT_RIGHT_4.wav",
+      "prefixedFileName": "compound_keep_right_KEEP_SLIGHT_RIGHT.wav",
+      "originalFileName": "compound_keep_right.wav",
+      "eventKey": "KEEP_SLIGHT_RIGHT_4",
+      "descriptionZh": "微靠右行",
+      "triggerDistanceMeters": 150,
+      "enabled": true
+    },
+    {
+      "fileName": "HEAD_NORTHEAST.wav",
+      "prefixedFileName": "start_3_NORTHEAST.wav",
+      "originalFileName": "start_3.wav",
+      "eventKey": "HEAD_NORTHEAST",
+      "descriptionZh": "往東北",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "RECOMPUTING_CHIME.wav",
+      "prefixedFileName": "recomputing_1_RECOMPUTING_CHIME.wav",
+      "originalFileName": "recomputing_1.wav",
+      "eventKey": "RECOMPUTING_CHIME",
+      "descriptionZh": "重新計算路線提示音（叮咚）",
+      "triggerDistanceMeters": 0,
+      "enabled": true
+    },
+    {
+      "fileName": "IN_100_METERS_TURN_RIGHT.wav",
+      "prefixedFileName": "and_then_turn_right_IN_100_METERS_TURN_RIGHT.wav",
+      "originalFileName": "and_then_turn_right.wav",
+      "eventKey": "IN_100_METERS_TURN_RIGHT",
+      "descriptionZh": "在 100 公尺處，向右轉",
+      "triggerDistanceMeters": 100,
+      "enabled": true
+    }
+  ]
+}

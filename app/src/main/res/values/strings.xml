@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <string name="app_name">ETS2 TruckSim GPS</string>
+    <string name="connect_title">連線至 ETS2 電腦端導航伺服器</string>
+    <string name="server_ip_label">電腦端 IP 位址</string>
+    <string name="server_port_label">通訊埠 (Port)</string>
+    <string name="btn_connect">連線並進入導航</string>
+    <string name="btn_retry">立即重試連線</string>
+    <string name="btn_recenter">回到卡車</string>
+    <string name="add_waypoint">新增路徑點</string>
+    <string name="replace_destination">重新標點（改成唯一目的地）</string>
+    <string name="navigate_to_cargo">一鍵導航到貨運目的地</string>
+    <string name="device_unsupported">裝置不支援</string>
+    <string name="license_notice">本專案採用 GNU GPL v3 開放原始碼授權，不使用任何 Google Maps 資料、圖示或商標。</string>
+</resources>

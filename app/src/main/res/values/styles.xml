@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<resources>
+    <style name="Theme.ETS2TruckSimGPS" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/nav_primary_blue</item>
+        <item name="colorPrimaryDark">@color/nav_dark_bg</item>
+        <item name="colorAccent">@color/nav_primary_blue</item>
+        <item name="android:windowBackground">@color/nav_dark_bg</item>
+        <item name="android:statusBarColor">@color/nav_dark_bg</item>
+        <item name="android:navigationBarColor">@color/nav_dark_bg</item>
+    </style>
+</resources>

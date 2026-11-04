@@ -1,0 +1,50 @@
+# Google_map_TW[0] 語音檔內容英文大寫重新命名與中文說明對照表
+# 格式：新檔名（純英文大寫） | 保留原前綴大寫檔名 | 中文語音說明 | 原檔名
+
+TURN_LEFT.wav | turn_left_TURN_LEFT.wav | 向左轉 | 原檔名: turn_left.wav
+KEEP_LEFT_AND_TAKE_EXIT_1.wav | compound_exit_left_KEEP_LEFT_AND_TAKE_EXIT.wav | 靠左下交流道 | 原檔名: compound_exit_left.wav
+ENTER_ROUNDABOUT_TAKE_1ST_EXIT.wav | roundabout_1_ENTER_ROUNDABOUT_TAKE_1ST_EXIT.wav | 進入圓環，在圓環處，於第一個出口下交流道 | 原檔名: roundabout_1.wav
+KEEP_LEFT_AND_TAKE_EXIT_2.wav | and_then_exit_left_KEEP_LEFT_AND_TAKE_EXIT.wav | 靠左下交流道 | 原檔名: and_then_exit_left.wav
+KEEP_RIGHT_AND_TAKE_EXIT_1.wav | exit_right_KEEP_RIGHT_AND_TAKE_EXIT.wav | 靠右行下交流道 | 原檔名: exit_right.wav
+KEEP_SLIGHT_RIGHT_1.wav | keep_right_KEEP_SLIGHT_RIGHT.wav | 微靠右行 | 原檔名: keep_right.wav
+HEAD_SOUTHEAST.wav | start_6_SOUTHEAST.wav | 往東南 | 原檔名: start_6.wav
+HEAD_EAST.wav | start_1_EAST.wav | 往東 | 原檔名: start_1.wav
+ENTER_ROUNDABOUT_TAKE_2ND_EXIT.wav | roundabout_2_ENTER_ROUNDABOUT_TAKE_2ND_EXIT.wav | 進入圓環，在圓環處，於第二個出口下交流道 | 原檔名: roundabout_2.wav
+IN_100_METERS_TURN_LEFT.wav | and_then_turn_left_IN_100_METERS_TURN_LEFT.wav | 在 100 公尺處，向左轉 | 原檔名: and_then_turn_left.wav
+KEEP_SLIGHT_LEFT_1.wav | and_then_keep_left_KEEP_SLIGHT_LEFT.wav | 微靠左行 | 原檔名: and_then_keep_left.wav
+KEEP_SLIGHT_LEFT_2.wav | compound_keep_left_KEEP_SLIGHT_LEFT.wav | 微靠左行 | 原檔名: compound_keep_left.wav
+YOU_HAVE_ARRIVED_AT_YOUR_DESTINATION.wav | finish_1_YOU_HAVE_ARRIVED_AT_YOUR_DESTINATION.wav | 您已到達目的地 | 原檔名: finish_1.wav
+SPEED_WARNING_BEEP_1.wav | speed_warning_SPEED_WARNING_BEEP.wav | 超速警示音（嘟嘟兩聲） | 原檔名: speed_warning.wav
+ENTER_ROUNDABOUT_TAKE_3RD_EXIT.wav | roundabout_3_ENTER_ROUNDABOUT_TAKE_3RD_EXIT.wav | 進入圓環，在圓環處，於第三個出口下交流道 | 原檔名: roundabout_3.wav
+KEEP_RIGHT_AND_TAKE_EXIT_2.wav | and_then_exit_right_KEEP_RIGHT_AND_TAKE_EXIT.wav | 靠右行下交流道 | 原檔名: and_then_exit_right.wav
+CONTINUE_STRAIGHT_1.wav | go_straight_1_CONTINUE_STRAIGHT.wav | 繼續直行 | 原檔名: go_straight_1.wav
+ENTER_ROUNDABOUT_TAKE_5TH_EXIT.wav | roundabout_5_ENTER_ROUNDABOUT_TAKE_5TH_EXIT.wav | 進入圓環，在圓環處，於第五個出口下交流道 | 原檔名: roundabout_5.wav
+KEEP_SLIGHT_RIGHT_2.wav | and_then_keep_right_KEEP_SLIGHT_RIGHT.wav | 微靠右行 | 原檔名: and_then_keep_right.wav
+KEEP_SLIGHT_LEFT_3.wav | keep_left_KEEP_SLIGHT_LEFT.wav | 微靠左行 | 原檔名: keep_left.wav
+HEAD_SOUTHWEST.wav | start_7_SOUTHWEST.wav | 往西南 | 原檔名: start_7.wav
+CONTINUE_STRAIGHT_2.wav | compound_go_straight_2_CONTINUE_STRAIGHT.wav | 繼續直行 | 原檔名: compound_go_straight_2.wav
+PLEASE_CONTINUE_STRAIGHT_1.wav | go_straight_2_PLEASE_CONTINUE_STRAIGHT.wav | 請繼續直行 | 原檔名: go_straight_2.wav
+SLIGHT_LEFT.wav | compound_turn_left_SLIGHT_LEFT.wav | 微靠左 | 原檔名: compound_turn_left.wav
+KEEP_SLIGHT_RIGHT_3.wav | compound_turn_right_KEEP_SLIGHT_RIGHT.wav | 微靠右行 | 原檔名: compound_turn_right.wav
+ENTER_ROUNDABOUT_TAKE_6TH_EXIT.wav | roundabout_6_ENTER_ROUNDABOUT_TAKE_6TH_EXIT.wav | 進入圓環，在圓環處，於第六個出口下交流道 | 原檔名: roundabout_6.wav
+MAKE_A_U_TURN.wav | u_turn_1_MAKE_A_U_TURN.wav | 迴轉 | 原檔名: u_turn_1.wav
+HEAD_WEST.wav | start_8_WEST.wav | 往西 | 原檔名: start_8.wav
+IN_300_METERS_TURN_RIGHT_1.wav | prepare_exit_right_IN_300_METERS_TURN_RIGHT.wav | 在 300 公尺處，向右轉 | 原檔名: prepare_exit_right.wav
+HEAD_NORTH.wav | start_2_NORTH.wav | 往北 | 原檔名: start_2.wav
+IN_300_METERS_TURN_RIGHT_2.wav | prepare_turn_right_IN_300_METERS_TURN_RIGHT.wav | 在 300 公尺處，向右轉 | 原檔名: prepare_turn_right.wav
+KEEP_RIGHT_AND_TAKE_EXIT_3.wav | compound_exit_right_KEEP_RIGHT_AND_TAKE_EXIT.wav | 靠右行下交流道 | 原檔名: compound_exit_right.wav
+HEAD_NORTHWEST.wav | start_4_NORTHWEST.wav | 往西北 | 原檔名: start_4.wav
+EXIT_ROUNDABOUT.wav | exit_now_EXIT_ROUNDABOUT.wav | 駛出圓環 | 原檔名: exit_now.wav
+ENTER_ROUNDABOUT_TAKE_4TH_EXIT.wav | roundabout_4_ENTER_ROUNDABOUT_TAKE_4TH_EXIT.wav | 進入圓環，在圓環處，於第四個出口下交流道 | 原檔名: roundabout_4.wav
+KEEP_LEFT_AND_TAKE_EXIT_3.wav | exit_left_KEEP_LEFT_AND_TAKE_EXIT.wav | 靠左下交流道 | 原檔名: exit_left.wav
+AND_THEN_CONTINUE_STRAIGHT.wav | and_then_go_straight_AND_THEN_CONTINUE_STRAIGHT.wav | 然後，繼續直行 | 原檔名: and_then_go_straight.wav
+IN_300_METERS_TURN_LEFT_1.wav | prepare_exit_left_IN_300_METERS_TURN_LEFT.wav | 在 300 公尺處，向左轉 | 原檔名: prepare_exit_left.wav
+IN_300_METERS_TURN_LEFT_2.wav | prepare_turn_left_IN_300_METERS_TURN_LEFT.wav | 在 300 公尺處，向左轉 | 原檔名: prepare_turn_left.wav
+TURN_RIGHT.wav | turn_right_TURN_RIGHT.wav | 向右轉 | 原檔名: turn_right.wav
+HEAD_SOUTH.wav | start_5_SOUTH.wav | 往南 | 原檔名: start_5.wav
+SPEED_WARNING_BEEP_2.wav | speed_signal_SPEED_WARNING_BEEP.wav | 超速提示音（嘟嘟兩聲） | 原檔名: speed_signal.wav
+PLEASE_CONTINUE_STRAIGHT_2.wav | compound_go_straight_1_PLEASE_CONTINUE_STRAIGHT.wav | 請繼續直行 | 原檔名: compound_go_straight_1.wav
+KEEP_SLIGHT_RIGHT_4.wav | compound_keep_right_KEEP_SLIGHT_RIGHT.wav | 微靠右行 | 原檔名: compound_keep_right.wav
+HEAD_NORTHEAST.wav | start_3_NORTHEAST.wav | 往東北 | 原檔名: start_3.wav
+RECOMPUTING_CHIME.wav | recomputing_1_RECOMPUTING_CHIME.wav | 重新計算路線提示音（叮咚） | 原檔名: recomputing_1.wav
+IN_100_METERS_TURN_RIGHT.wav | and_then_turn_right_IN_100_METERS_TURN_RIGHT.wav | 在 100 公尺處，向右轉 | 原檔名: and_then_turn_right.wav
