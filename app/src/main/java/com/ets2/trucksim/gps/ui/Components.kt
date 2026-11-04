@@ -12,17 +12,21 @@ package com.ets2.trucksim.gps.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,21 +42,34 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ets2.trucksim.gps.data.SavedConnectionConfig
 import com.ets2.trucksim.gps.model.ConnectionState
-import com.ets2.trucksim.gps.model.DeliveryStage
+import com.ets2.trucksim.gps.model.HudWidgetId
+import com.ets2.trucksim.gps.model.HudWidgetOffset
 import com.ets2.trucksim.gps.model.MapPointSelection
 import com.ets2.trucksim.gps.model.MapTileSourceMode
 import com.ets2.trucksim.gps.model.NavRouteCandidate
+import com.ets2.trucksim.gps.model.PoiType
 import com.ets2.trucksim.gps.model.RouteWaypoint
 import com.ets2.trucksim.gps.model.RoutingOptions
 import com.ets2.trucksim.gps.model.ScsMapPackInfo
@@ -64,7 +81,133 @@ import com.ets2.trucksim.gps.model.VoiceMappingEntry
 import kotlin.math.roundToInt
 
 /**
- * 1. 啟動與連線畫面（含 APK 內建 SCS_Map_Tiles 與導入 .zip 地圖檔入口）
+ * 跨手機 / 摺疊機 / 平板螢幕的自適應尺寸參數
+ */
+data class AdaptiveScreenMetrics(
+    val isCompactPhone: Boolean,
+    val isTabletOrWide: Boolean,
+    val uiScale: Float,
+    val limitCircleSize: Dp,
+    val speedCircleSize: Dp,
+    val maxCardWidth: Dp
+)
+
+@Composable
+fun rememberAdaptiveScreenMetrics(maxWidth: Dp, maxHeight: Dp): AdaptiveScreenMetrics {
+    val minDim = minOf(maxWidth, maxHeight)
+    val isCompact = minDim < 360.dp
+    val isTabletOrWide = maxWidth >= 640.dp
+    val scale = when {
+        minDim >= 600.dp -> 1.20f
+        isCompact -> 0.86f
+        else -> 1.0f
+    }
+    return AdaptiveScreenMetrics(
+        isCompactPhone = isCompact,
+        isTabletOrWide = isTabletOrWide,
+        uiScale = scale,
+        limitCircleSize = (70f * scale).dp,
+        speedCircleSize = (82f * scale).dp,
+        maxCardWidth = if (isTabletOrWide) 540.dp else maxWidth
+    )
+}
+
+/**
+ * 可長按自由拖曳移動的 HUD 容器 (`detectDragGesturesAfterLongPress`)
+ *
+ * - 長按後觸發震動回饋並亮起藍色拖曳邊框與元件名稱提示
+ * - 自動限制在父容器畫面範圍內，避免拖出手機/平板螢幕外
+ * - 放開手指時自動以相對螢幕比例 `(0.0f..1.0f)` 保存位置，橫直向旋轉依然精準對位
+ */
+@Composable
+fun DraggableHudWidget(
+    widgetId: HudWidgetId,
+    offsetFraction: HudWidgetOffset,
+    parentWidthPx: Float,
+    parentHeightPx: Float,
+    onOffsetCommitted: (HudWidgetId, HudWidgetOffset) -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    var widgetSize by remember { mutableStateOf(IntSize.Zero) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    val safeParentW = parentWidthPx.coerceAtLeast(1f)
+    val safeParentH = parentHeightPx.coerceAtLeast(1f)
+    val maxOffsetX = (safeParentW - widgetSize.width).coerceAtLeast(0f)
+    val maxOffsetY = (safeParentH - widgetSize.height).coerceAtLeast(0f)
+
+    var dragX by remember(offsetFraction.xFraction, safeParentW, widgetSize.width) {
+        mutableStateOf((offsetFraction.xFraction * safeParentW).coerceIn(0f, maxOffsetX))
+    }
+    var dragY by remember(offsetFraction.yFraction, safeParentH, widgetSize.height) {
+        mutableStateOf((offsetFraction.yFraction * safeParentH).coerceIn(0f, maxOffsetY))
+    }
+
+    Box(
+        modifier = modifier
+            .offset { IntOffset(dragX.roundToInt(), dragY.roundToInt()) }
+            .onSizeChanged { widgetSize = it }
+            .pointerInput(widgetId, safeParentW, safeParentH, widgetSize) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        isDragging = true
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                    onDragEnd = {
+                        isDragging = false
+                        onOffsetCommitted(
+                            widgetId,
+                            HudWidgetOffset(
+                                xFraction = (dragX / safeParentW).coerceIn(0f, 0.94f),
+                                yFraction = (dragY / safeParentH).coerceIn(0f, 0.94f)
+                            )
+                        )
+                    },
+                    onDragCancel = {
+                        isDragging = false
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val limitX = (safeParentW - widgetSize.width).coerceAtLeast(0f)
+                        val limitY = (safeParentH - widgetSize.height).coerceAtLeast(0f)
+                        dragX = (dragX + dragAmount.x).coerceIn(0f, limitX)
+                        dragY = (dragY + dragAmount.y).coerceIn(0f, limitY)
+                    }
+                )
+            }
+            .then(
+                if (isDragging) {
+                    Modifier
+                        .border(2.dp, Color(0xFF38BDF8), RoundedCornerShape(14.dp))
+                        .background(Color(0x3338BDF8), RoundedCornerShape(14.dp))
+                        .padding(2.dp)
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        Column {
+            if (isDragging) {
+                Text(
+                    text = "✥ 拖曳移動中：${widgetId.labelZh}",
+                    color = Color(0xFF38BDF8),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Color(0xE60B0E14), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+            content()
+        }
+    }
+}
+
+/**
+ * 1. 啟動與連線畫面（已移除驗收切換，自動適配手機與平板寬度）
  */
 @Composable
 fun StartupConnectionScreen(
@@ -73,8 +216,6 @@ fun StartupConnectionScreen(
     onHostChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
     connectionState: ConnectionState,
-    activeStage: DeliveryStage,
-    onStageChange: (DeliveryStage) -> Unit,
     scsMapPackInfo: ScsMapPackInfo,
     mapImportStatusMessage: String?,
     onPickMapZipFile: () -> Unit,
@@ -82,198 +223,158 @@ fun StartupConnectionScreen(
     onConnectClick: () -> Unit,
     onEnterOfflineBuiltInMap: () -> Unit
 ) {
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0B0E14))
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(Color(0xFF0B0E14)),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "ETS2 TRUCKSIM GPS",
-            color = Color(0xFFF8FAFC),
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = "電腦端遙測與內建 SCS_Map_Tiles 導航系統 (GPL v3)",
-            color = Color(0xFF94A3B8),
-            fontSize = 14.sp
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // 分階段驗收切換器 (2-1 ~ 2-4)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF161B26), RoundedCornerShape(10.dp))
-                .border(1.dp, Color(0xFF262F40), RoundedCornerShape(10.dp))
-                .padding(14.dp)
-        ) {
-            Text(
-                text = "分階段驗收模式切換：",
-                color = Color(0xFF94A3B8),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                DeliveryStage.values().forEach { stage ->
-                    val selected = stage == activeStage
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (selected) Color(0xFF3B82F6) else Color(0xFF0B0E14))
-                            .clickable { onStageChange(stage) }
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = stage.code,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = activeStage.subtitleZh,
-                color = Color(0xFFCBD5E1),
-                fontSize = 12.sp
-            )
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 內建 SCS_Map_Tiles 與導入 .zip 地圖檔入口卡片
-        ScsMapPackCard(
-            scsMapPackInfo = scsMapPackInfo,
-            mapImportStatusMessage = mapImportStatusMessage,
-            onPickMapZipFile = onPickMapZipFile,
-            onResetBuiltInMap = onResetBuiltInMap
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
+        val metrics = rememberAdaptiveScreenMetrics(maxWidth, maxHeight)
 
         Column(
             modifier = Modifier
+                .widthIn(max = if (metrics.isTabletOrWide) 560.dp else maxWidth)
                 .fillMaxWidth()
-                .background(Color(0xFF161B26), RoundedCornerShape(12.dp))
-                .border(1.dp, Color(0xFF262F40), RoundedCornerShape(12.dp))
-                .padding(18.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = if (metrics.isCompactPhone) 14.dp else 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "請輸入電腦端 Node.js 伺服器 IP 與埠號",
+                text = "ETS2 TRUCKSIM GPS",
                 color = Color(0xFFF8FAFC),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
+                fontSize = (24 * metrics.uiScale).sp,
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = hostInput,
-                onValueChange = onHostChange,
-                label = { Text("電腦端 IP 位址 (例如 192.168.1.100)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = portInput,
-                onValueChange = onPortChange,
-                label = { Text("伺服器埠號 (預設 3000)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "2K 超清 SCS_Map_Tiles 導航 • 台灣語音模組 2 (GPL v3)",
+                color = Color(0xFF94A3B8),
+                fontSize = 13.sp
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            when (connectionState) {
-                is ConnectionState.Connecting -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color(0xFF3B82F6),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "正在連線並等待電腦端伺服器回應 (${connectionState.host}:${connectionState.port})...",
-                            color = Color(0xFF93C5FD),
-                            fontSize = 13.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-                is ConnectionState.Error -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF3F1D24), RoundedCornerShape(8.dp))
-                            .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(8.dp))
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = connectionState.messageZh,
-                            color = Color(0xFFFCA5A5),
-                            fontSize = 13.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-                else -> Unit
-            }
+            // 內建 2K SCS_Map_Tiles 與導入 .zip 地圖檔入口卡片
+            ScsMapPackCard(
+                scsMapPackInfo = scsMapPackInfo,
+                mapImportStatusMessage = mapImportStatusMessage,
+                onPickMapZipFile = onPickMapZipFile,
+                onResetBuiltInMap = onResetBuiltInMap
+            )
 
-            Button(
-                onClick = onConnectClick,
-                enabled = connectionState !is ConnectionState.Connecting,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .background(Color(0xFF161B26), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFF262F40), RoundedCornerShape(12.dp))
+                    .padding(18.dp)
             ) {
                 Text(
-                    text = if (connectionState is ConnectionState.Error) "重試連線至電腦端" else "連線並驗證伺服器",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedButton(
-                onClick = onEnterOfflineBuiltInMap,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-            ) {
-                Text(
-                    text = "直接使用 APK 內建 / 已導入 .zip 地圖進入主畫面",
-                    color = Color(0xFF93C5FD),
-                    fontSize = 13.sp,
+                    text = "請輸入電腦端 Node.js 伺服器 IP 與埠號",
+                    color = Color(0xFFF8FAFC),
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = hostInput,
+                    onValueChange = onHostChange,
+                    label = { Text("電腦端 IP 位址 (例如 192.168.1.100)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = portInput,
+                    onValueChange = onPortChange,
+                    label = { Text("伺服器埠號 (預設 3000)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                when (connectionState) {
+                    is ConnectionState.Connecting -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color(0xFF3B82F6),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "正在連線並等待電腦端伺服器回應 (${connectionState.host}:${connectionState.port})...",
+                                color = Color(0xFF93C5FD),
+                                fontSize = 13.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    is ConnectionState.Error -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF3F1D24), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(8.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = connectionState.messageZh,
+                                color = Color(0xFFFCA5A5),
+                                fontSize = 13.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    else -> Unit
+                }
+
+                Button(
+                    onClick = onConnectClick,
+                    enabled = connectionState !is ConnectionState.Connecting,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Text(
+                        text = if (connectionState is ConnectionState.Error) "重試連線至電腦端" else "連線並驗證伺服器",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = onEnterOfflineBuiltInMap,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                ) {
+                    Text(
+                        text = "直接使用 APK 內建 2K 地圖 / 已導入 .zip 進入主畫面",
+                        color = Color(0xFF93C5FD),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * SCS_Map_Tiles 內建與 .zip 地圖包導入管理卡片
+ * SCS_Map_Tiles 2K 內建與 .zip 地圖包導入管理卡片
  */
 @Composable
 fun ScsMapPackCard(
@@ -295,13 +396,13 @@ fun ScsMapPackCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "🗺️ ETS2 地圖包管理 (Unicor-p/SCS_Map_Tiles)",
+                text = "🗺️ 2K 高清地圖包管理 (Unicor-p/SCS_Map_Tiles)",
                 color = Color(0xFF6EE7B7),
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
             Text(
-                text = if (scsMapPackInfo.isCustomZipLoaded) "自訂 .ZIP 索引中" else "APK 內建地圖",
+                text = if (scsMapPackInfo.isCustomZipLoaded) "自訂 .ZIP 2K 索引" else "2K @2x 超採樣",
                 color = Color(0xFF10B981),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 11.sp,
@@ -316,7 +417,7 @@ fun ScsMapPackCard(
             fontSize = 12.sp
         )
         Text(
-            text = "遊戲版本：${scsMapPackInfo.gameName} (${scsMapPackInfo.mapVersion}) • Zoom ${scsMapPackInfo.minZoom}~${scsMapPackInfo.maxZoom} (${scsMapPackInfo.tileSize}px) • 已索引 ${scsMapPackInfo.indexedTileCount} 張圖磚",
+            text = "畫質規格：${scsMapPackInfo.resolutionQualityLabel} • 已索引 ${scsMapPackInfo.indexedTileCount} 張高清圖磚",
             color = Color(0xFF94A3B8),
             fontSize = 11.sp
         )
@@ -349,7 +450,7 @@ fun ScsMapPackCard(
                     onClick = onResetBuiltInMap
                 ) {
                     Text(
-                        text = "恢復內建地圖",
+                        text = "恢復內建 2K 地圖",
                         color = Color(0xFFCBD5E1),
                         fontSize = 12.sp
                     )
@@ -360,13 +461,14 @@ fun ScsMapPackCard(
 }
 
 /**
- * 2. 雙圓形時速與限速徽章（支援 km/h 與 mph 點擊切換、超速自動變色）
+ * 2. 雙圓形時速與限速徽章（自動適配手機/平板尺寸，點擊切換 km/h 與 mph、長按可拖曳移動）
  */
 @Composable
 fun DualCircularSpeedCluster(
     speedKmh: Float,
     speedLimitKmh: Int,
     speedUnit: SpeedUnit,
+    metrics: AdaptiveScreenMetrics,
     onToggleUnit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -378,17 +480,17 @@ fun DualCircularSpeedCluster(
         modifier = modifier
             .clickable { onToggleUnit() }
             .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy((10f * metrics.uiScale).dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 限速圓形（白底紅圈標準歐陸標誌，超速時外框與底色閃耀警示紅）
+        // 限速圓形
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(metrics.limitCircleSize)
                 .clip(CircleShape)
                 .background(if (isOverspeed) Color(0xFFEF4444) else Color(0xFFF8FAFC))
                 .border(
-                    width = 7.dp,
+                    width = (6.5f * metrics.uiScale).dp,
                     color = if (isOverspeed) Color(0xFFB91C1C) else Color(0xFFEF4444),
                     shape = CircleShape
                 ),
@@ -398,27 +500,27 @@ fun DualCircularSpeedCluster(
                 Text(
                     text = if (speedLimitKmh > 0) "$convertedLimit" else "--",
                     color = if (isOverspeed) Color.White else Color(0xFF0F172A),
-                    fontSize = 24.sp,
+                    fontSize = (22f * metrics.uiScale).sp,
                     fontWeight = FontWeight.ExtraBold,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
                     text = "限速",
                     color = if (isOverspeed) Color(0xFFFEE2E2) else Color(0xFF475569),
-                    fontSize = 10.sp,
+                    fontSize = (10f * metrics.uiScale).sp,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
 
-        // 目前時速圓形（深色高對比戰術儀表，超速時變為琥珀紅底色）
+        // 目前時速圓形
         Box(
             modifier = Modifier
-                .size(84.dp)
+                .size(metrics.speedCircleSize)
                 .clip(CircleShape)
                 .background(if (isOverspeed) Color(0xFF7F1D1D) else Color(0xE6161B26))
                 .border(
-                    width = 3.dp,
+                    width = (3f * metrics.uiScale).dp,
                     color = if (isOverspeed) Color(0xFFEF4444) else Color(0xFF3B82F6),
                     shape = CircleShape
                 ),
@@ -428,14 +530,14 @@ fun DualCircularSpeedCluster(
                 Text(
                     text = "$convertedSpeed",
                     color = if (isOverspeed) Color(0xFFFCA5A5) else Color(0xFFF8FAFC),
-                    fontSize = 28.sp,
+                    fontSize = (26f * metrics.uiScale).sp,
                     fontWeight = FontWeight.ExtraBold,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
                     text = speedUnit.label,
                     color = Color(0xFF94A3B8),
-                    fontSize = 11.sp,
+                    fontSize = (11f * metrics.uiScale).sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -445,11 +547,11 @@ fun DualCircularSpeedCluster(
 
 /**
  * 3. 點擊地圖任意位置或 POI 地標彈出小視窗
- * 選項：「新增路徑點」或「重新標點（改成唯一目的地）」
  */
 @Composable
 fun MapTapActionDialog(
     selection: MapPointSelection,
+    maxCardWidth: Dp,
     onAddWaypoint: (MapPointSelection) -> Unit,
     onSetSingleDestination: (MapPointSelection) -> Unit,
     onSaveFavorite: (MapPointSelection) -> Unit,
@@ -457,6 +559,7 @@ fun MapTapActionDialog(
 ) {
     Column(
         modifier = Modifier
+            .widthIn(max = maxCardWidth)
             .fillMaxWidth()
             .background(Color(0xF2161B26), RoundedCornerShape(14.dp))
             .border(1.dp, Color(0xFF334155), RoundedCornerShape(14.dp))
@@ -527,16 +630,15 @@ fun MapTapActionDialog(
 }
 
 /**
- * 4. 2-4 遙測延伸功能橫幅（貨運任務一鍵導航 + 低油量/車損/疲勞智慧提示）
+ * 4. 遙測延伸功能橫幅（貨運任務一鍵導航 + 低油量/車損/疲勞智慧提示）
  */
 @Composable
 fun ExtendedTelemetryAlertsPanel(
     telemetry: TruckTelemetryState,
     onNavigateToJobDestination: () -> Unit,
-    onHighlightNearestPoi: (com.ets2.trucksim.gps.model.PoiType) -> Unit
+    onHighlightNearestPoi: (PoiType) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        // 貨運資訊與一鍵導航
         if (telemetry.job.active && telemetry.job.destinationCity.isNotBlank()) {
             Row(
                 modifier = Modifier
@@ -569,33 +671,30 @@ fun ExtendedTelemetryAlertsPanel(
             }
         }
 
-        // 油量過低警告 (< 20%)
         if (telemetry.fuelRatio < 0.20f) {
             AlertStrip(
                 textZh = "油量過低 (${(telemetry.fuelRatio * 100).roundToInt()}%)！建議立即前往附近加油站",
                 buttonTextZh = "標出加油站",
                 borderColor = Color(0xFFF59E0B),
-                onClick = { onHighlightNearestPoi(com.ets2.trucksim.gps.model.PoiType.GAS_STATION) }
+                onClick = { onHighlightNearestPoi(PoiType.GAS_STATION) }
             )
         }
 
-        // 車損超過門檻警告 (> 15%)
         if (telemetry.truckDamageRatio > 0.15f) {
             AlertStrip(
                 textZh = "車輛損壞達 ${(telemetry.truckDamageRatio * 100).roundToInt()}%！請前往維修廠檢修",
                 buttonTextZh = "標出維修廠",
                 borderColor = Color(0xFFEF4444),
-                onClick = { onHighlightNearestPoi(com.ets2.trucksim.gps.model.PoiType.SERVICE_STATION) }
+                onClick = { onHighlightNearestPoi(PoiType.SERVICE_STATION) }
             )
         }
 
-        // 疲勞休息時間不足警告 (< 60 分鐘)
         if (telemetry.nextRestStopMinutes in 1..60) {
             AlertStrip(
                 textZh = "疲勞休息剩餘 ${telemetry.nextRestStopMinutes} 分鐘！請尋找休息站停車",
                 buttonTextZh = "標出休息站",
                 borderColor = Color(0xFFA855F7),
-                onClick = { onHighlightNearestPoi(com.ets2.trucksim.gps.model.PoiType.REST_AREA) }
+                onClick = { onHighlightNearestPoi(PoiType.REST_AREA) }
             )
         }
     }
@@ -632,13 +731,14 @@ private fun AlertStrip(
 }
 
 /**
- * 5. 多路徑點排序清單、路線偏好與設定面板
+ * 5. 多路徑點排序清單与路線偏好面板（平板與橫向螢幕自動限制最佳閱讀寬度）
  */
 @Composable
 fun WaypointAndRoutingSheet(
     waypoints: List<RouteWaypoint>,
     routingOptions: RoutingOptions,
     routeCandidates: List<NavRouteCandidate>,
+    maxCardWidth: Dp,
     onMoveWaypointUp: (Int) -> Unit,
     onMoveWaypointDown: (Int) -> Unit,
     onRemoveWaypoint: (String) -> Unit,
@@ -649,6 +749,7 @@ fun WaypointAndRoutingSheet(
 ) {
     Column(
         modifier = Modifier
+            .widthIn(max = maxCardWidth)
             .fillMaxWidth()
             .background(Color(0xF5161B26), RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             .border(1.dp, Color(0xFF334155), RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
@@ -696,7 +797,6 @@ fun WaypointAndRoutingSheet(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 替代路線選擇
         if (routeCandidates.isNotEmpty()) {
             Text("可用路線與替代方案：", color = Color(0xFF94A3B8), fontSize = 12.sp)
             Spacer(modifier = Modifier.height(6.dp))
@@ -785,7 +885,7 @@ fun WaypointAndRoutingSheet(
 }
 
 /**
- * 6. 幀數設定 (30/60/120/144/165/185/無限)、地圖包管理與台灣語音模組 2 (47音檔) 設定面板
+ * 6. 系統設定、UI 位置重置、2K 地圖模式與台灣語音模組 2 (47音檔) 設定面板
  */
 @Composable
 fun SettingsAndVoiceSheet(
@@ -796,6 +896,7 @@ fun SettingsAndVoiceSheet(
     mapImportStatusMessage: String?,
     voiceEntries: List<VoiceMappingEntry>,
     missingVoiceNotice: String?,
+    maxCardWidth: Dp,
     onSelectTargetFps: (TargetFpsOption) -> Unit,
     onToggleFpsCounter: (Boolean) -> Unit,
     onToggleLowBatterySaver: (Boolean) -> Unit,
@@ -804,6 +905,7 @@ fun SettingsAndVoiceSheet(
     onSelectTileSourceMode: (MapTileSourceMode) -> Unit,
     onPickMapZipFile: () -> Unit,
     onResetBuiltInMap: () -> Unit,
+    onResetHudPositions: () -> Unit,
     onVoiceVolumeChange: (Float) -> Unit,
     onToggleVoiceMuted: (Boolean) -> Unit,
     onTestPlayVoiceEvent: (String) -> Unit,
@@ -811,6 +913,7 @@ fun SettingsAndVoiceSheet(
 ) {
     Column(
         modifier = Modifier
+            .widthIn(max = maxCardWidth)
             .fillMaxWidth()
             .height(560.dp)
             .background(Color(0xF7161B26), RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
@@ -824,7 +927,7 @@ fun SettingsAndVoiceSheet(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "系統設定、地圖包與台灣語音對照表",
+                text = "系統設定、2K 地圖包與台灣語音",
                 color = Color(0xFFF8FAFC),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
@@ -834,9 +937,40 @@ fun SettingsAndVoiceSheet(
             }
         }
 
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // 長按移動 UI 說明與一鍵重置按鈕
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0B0E14), RoundedCornerShape(10.dp))
+                .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(10.dp))
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "✥ 主畫面 UI 自由長按移動",
+                    color = Color(0xFF38BDF8),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "長按主畫面的時速圓形、導航列、FPS 或按鈕列即可隨意拖曳位置並自動記憶",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            OutlinedButton(onClick = onResetHudPositions) {
+                Text("重置 UI 位置", fontSize = 11.sp, color = Color(0xFF38BDF8))
+            }
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 地圖來源與 .zip 地圖包導入管理
+        // 2K 地圖來源與 .zip 地圖包導入管理
         ScsMapPackCard(
             scsMapPackInfo = scsMapPackInfo,
             mapImportStatusMessage = mapImportStatusMessage,
@@ -845,12 +979,12 @@ fun SettingsAndVoiceSheet(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             MapTileSourceMode.values().forEach { mode ->
                 val selected = mode == tileSourceMode
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(if (selected) Color(0xFF1E3A8A) else Color(0xFF0B0E14))
                         .border(

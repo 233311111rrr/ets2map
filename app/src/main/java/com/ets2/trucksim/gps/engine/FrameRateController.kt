@@ -1,239 +1,169 @@
-// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 ETS2 TruckSim GPS Contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
 package com.ets2.trucksim.gps.engine
 
 import android.app.Activity
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
 import android.os.Build
-import android.os.PowerManager
 import android.view.Choreographer
 import android.view.Display
-import android.view.Surface
-import android.view.SurfaceView
 import com.ets2.trucksim.gps.model.TargetFpsOption
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
- * 螢幕高刷新率控制器與 FPS 監測器 (FrameRateController)
+ * 螢幕高刷新率控制器與 FPS 計數器 (FrameRateController)
  *
- * 【2-2 階段核心實作】
- * 1. 支援 30、60、120、144、165、185、無限 七檔幀數設定。
- * 2. 自動偵測裝置螢幕支援的所有 Display.Mode 最高刷新率；若選項超過螢幕支援上限，
- *    回報「裝置不支援」並自動以裝置硬體最高刷新率運作。
- * 3. Android 11 (API 30) 以上透過 Surface.setFrameRate() 與 Window.attributes.preferredDisplayModeId
- *    雙重鎖定目標刷新率；並利用 Choreographer 執行幀率步進與真實 FPS / FrameTime (ms) 統計。
- * 4. 支援「低電量時自動降幀（<= 20% 或省電模式時降至 30 FPS）」且可自由開關。
+ * 1. 支援 30、60、120、144、165、185、無限（跟隨螢幕最高刷新率）七段設定。
+ * 2. 自動偵測裝置螢幕支援的最高刷新率 (`maxSupportedRefreshRateHz`)；超過上限時自動以裝置最高刷新率運作。
+ * 3. 支援低電量時自動降幀（可關閉）。
+ * 4. 透過 `Choreographer` 驅動每幀位置內插並計算即時 FPS (`measuredFps`)。
  */
 class FrameRateController(
-    private val activity: Activity,
-    private val onFrameUpdate: (frameTimeNanos: Long, currentFps: Int, frameTimeMs: Float) -> Unit
+    private val activity: Activity
 ) : Choreographer.FrameCallback {
 
-    private var choreographer: Choreographer = Choreographer.getInstance()
+    private val choreographer: Choreographer = Choreographer.getInstance()
     private var isRunning = false
+    private var frameCallbackAction: ((Long) -> Unit)? = null
 
-    private var selectedOption: TargetFpsOption = TargetFpsOption.FPS_120
-    private var lowBatteryAutoDropEnabled: Boolean = true
-    private var isBatteryLowOrPowerSave: Boolean = false
+    private val _measuredFps = MutableStateFlow(60)
+    val measuredFps: StateFlow<Int> = _measuredFps.asStateFlow()
 
-    // 裝置硬體支援之刷新率清單與上限
-    var maxDeviceRefreshRate: Float = 60f
-        private set
-    var supportedRefreshRates: List<Int> = listOf(60)
+    var maxSupportedRefreshRateHz: Float = 60f
         private set
 
-    // FPS 統計緩衝（無每幀物件配置）
-    private var lastFrameNanos: Long = 0L
-    private var fpsWindowStartNanos: Long = 0L
-    private var framesInWindow: Int = 0
-    var currentMeasuredFps: Int = 60
-        private set
-    var currentFrameTimeMs: Float = 16.6f
-        private set
+    private var activeOption: TargetFpsOption = TargetFpsOption.FPS_120
+    private var lowBatteryDropEnabled: Boolean = true
+    private var isLowBattery: Boolean = false
 
-    private var boundSurfaceView: SurfaceView? = null
-
-    private val batteryReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent == null) return
-            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-            val batteryPct = if (level >= 0 && scale > 0) (level * 100) / scale else 100
-
-            val powerManager = activity.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            val isPowerSave = powerManager?.isPowerSaveMode == true
-
-            val newLowState = (batteryPct <= 20) || isPowerSave
-            if (newLowState != isBatteryLowOrPowerSave) {
-                isBatteryLowOrPowerSave = newLowState
-                applyHardwareFrameRate()
-            }
-        }
-    }
+    private var windowStartNanos: Long = 0L
+    private var frameCountInWindow: Int = 0
+    private var lastDispatchedFrameNanos: Long = 0L
 
     init {
-        queryDeviceDisplayModes()
+        detectDeviceRefreshCapabilities()
     }
 
-    /**
-     * 讀取手機螢幕支援的所有刷新率與最高上限
-     */
-    fun queryDeviceDisplayModes() {
+    private fun detectDeviceRefreshCapabilities() {
         val display: Display? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            activity.display
+            runCatching { activity.display }.getOrNull()
         } else {
             @Suppress("DEPRECATION")
             activity.windowManager.defaultDisplay
         }
 
-        val modes = display?.supportedModes
-        if (!modes.isNullOrEmpty()) {
-            maxDeviceRefreshRate = modes.maxOf { it.refreshRate }
-            supportedRefreshRates = modes.map { it.refreshRate.roundToInt() }.distinct().sorted()
+        val supportedModes = display?.supportedModes
+        maxSupportedRefreshRateHz = if (!supportedModes.isNullOrEmpty()) {
+            supportedModes.maxOf { it.refreshRate }
         } else {
-            maxDeviceRefreshRate = display?.refreshRate ?: 60f
-            supportedRefreshRates = listOf(maxDeviceRefreshRate.roundToInt())
+            display?.refreshRate ?: 60f
         }
     }
 
     /**
-     * 綁定 MapLibre 底層 SurfaceView 以套用 Android 11+ Surface.setFrameRate
+     * 套用使用者選擇的目標幀數與低電量自動降幀設定
      */
-    fun bindMapSurfaceView(surfaceView: SurfaceView?) {
-        boundSurfaceView = surfaceView
-        applyHardwareFrameRate()
-    }
-
-    /**
-     * 設定目標幀數與低電量自動降幀開關
-     */
-    fun updateFrameRateSettings(
+    fun applyFrameRateOption(
         option: TargetFpsOption,
-        lowBatteryDrop: Boolean
+        lowBatteryDropEnabled: Boolean,
+        isCurrentlyLowBattery: Boolean
     ) {
-        selectedOption = option
-        lowBatteryAutoDropEnabled = lowBatteryDrop
-        applyHardwareFrameRate()
+        this.activeOption = option
+        this.lowBatteryDropEnabled = lowBatteryDropEnabled
+        this.isLowBattery = isCurrentlyLowBattery
+
+        val targetHz = resolveEffectiveTargetHz()
+        applyWindowDisplayMode(targetHz)
     }
 
-    /**
-     * 取得目前實際生效的目標刷新率 (考慮裝置上限與低電量自動降幀)
-     */
-    fun getEffectiveTargetHz(): Float {
-        if (lowBatteryAutoDropEnabled && isBatteryLowOrPowerSave) {
-            return 30f
+    private fun resolveEffectiveTargetHz(): Float {
+        if (lowBatteryDropEnabled && isLowBattery) {
+            return minOf(60f, maxSupportedRefreshRateHz)
         }
-        if (selectedOption == TargetFpsOption.UNLIMITED) {
-            return maxDeviceRefreshRate
+        if (activeOption == TargetFpsOption.UNLIMITED || activeOption.fpsValue <= 0) {
+            return maxSupportedRefreshRateHz
         }
-        return minOf(selectedOption.targetHz.toFloat(), maxDeviceRefreshRate)
+        return minOf(activeOption.fpsValue.toFloat(), maxSupportedRefreshRateHz)
     }
 
-    /**
-     * 回傳設定頁面顯示用的狀態描述（標示「裝置不支援」並說明自動以裝置上限運作）
-     */
-    fun getOptionStatusText(option: TargetFpsOption): String {
-        if (option == TargetFpsOption.UNLIMITED) {
-            return "不設上限，跟隨螢幕最高刷新率 (${maxDeviceRefreshRate.roundToInt()} Hz)"
-        }
-        val supported = option.isSupportedByDevice(maxDeviceRefreshRate)
-        return if (supported) {
-            "裝置支援 (${option.targetHz} Hz)"
-        } else {
-            "裝置不支援（螢幕上限 ${maxDeviceRefreshRate.roundToInt()} Hz，將自動以裝置上限運作）"
-        }
-    }
-
-    /**
-     * 套用 Window preferredDisplayModeId 與 Android 11+ Surface.setFrameRate
-     */
-    private fun applyHardwareFrameRate() {
-        val effectiveHz = getEffectiveTargetHz()
-
-        // 1. 設定 Window preferredDisplayModeId 切換硬體螢幕刷新率
+    private fun applyWindowDisplayMode(targetHz: Float) {
         val display: Display? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            activity.display
+            runCatching { activity.display }.getOrNull()
         } else {
             @Suppress("DEPRECATION")
             activity.windowManager.defaultDisplay
         }
 
-        val modes = display?.supportedModes
-        if (!modes.isNullOrEmpty()) {
-            // 尋找最接近 effectiveHz 且解析度最高的 Display.Mode
-            val bestMode = modes
-                .sortedWith(
-                    compareBy<Display.Mode> { abs(it.refreshRate - effectiveHz) }
-                        .thenByDescending { it.physicalWidth * it.physicalHeight }
-                )
-                .firstOrNull()
+        val modes = display?.supportedModes ?: return
+        val bestMode = modes
+            .sortedWith(
+                compareBy<Display.Mode> { abs(it.refreshRate - targetHz) }
+                    .thenByDescending { it.physicalWidth * it.physicalHeight }
+            )
+            .firstOrNull() ?: return
 
-            if (bestMode != null) {
-                val params = activity.window.attributes
-                if (params.preferredDisplayModeId != bestMode.modeId) {
-                    params.preferredDisplayModeId = bestMode.modeId
-                    activity.window.attributes = params
-                }
-            }
-        }
-
-        // 2. Android 11 (API 30) 以上呼叫 Surface.setFrameRate
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val surface: Surface? = boundSurfaceView?.holder?.surface
-            if (surface != null && surface.isValid) {
-                val compatibility = if (selectedOption == TargetFpsOption.UNLIMITED) {
-                    Surface.FRAME_RATE_COMPATIBILITY_DEFAULT
-                } else {
-                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE
-                }
-                surface.setFrameRate(effectiveHz, compatibility)
-            }
+        val attrs = activity.window.attributes
+        if (attrs.preferredDisplayModeId != bestMode.modeId) {
+            attrs.preferredDisplayModeId = bestMode.modeId
+            activity.window.attributes = attrs
         }
     }
 
-    fun start() {
+    /**
+     * 啟動 Choreographer 每幀回呼
+     */
+    fun start(onFrame: (Long) -> Unit) {
+        this.frameCallbackAction = onFrame
         if (isRunning) return
         isRunning = true
-        lastFrameNanos = 0L
-        fpsWindowStartNanos = 0L
-        framesInWindow = 0
-        activity.registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        applyHardwareFrameRate()
+        windowStartNanos = 0L
+        frameCountInWindow = 0
+        lastDispatchedFrameNanos = 0L
         choreographer.postFrameCallback(this)
     }
 
     fun stop() {
-        if (!isRunning) return
         isRunning = false
+        frameCallbackAction = null
         choreographer.removeFrameCallback(this)
-        runCatching { activity.unregisterReceiver(batteryReceiver) }
     }
 
     override fun doFrame(frameTimeNanos: Long) {
         if (!isRunning) return
 
-        if (lastFrameNanos != 0L) {
-            val deltaNanos = frameTimeNanos - lastFrameNanos
-            currentFrameTimeMs = (deltaNanos / 1_000_000.0f)
-        }
-        lastFrameNanos = frameTimeNanos
-
-        if (fpsWindowStartNanos == 0L) {
-            fpsWindowStartNanos = frameTimeNanos
-        }
-        framesInWindow++
-        val windowElapsed = frameTimeNanos - fpsWindowStartNanos
-        if (windowElapsed >= 500_000_000L) { // 每 0.5 秒更新一次 FPS 讀數
-            currentMeasuredFps = ((framesInWindow * 1_000_000_000L) / windowElapsed).toInt()
-            framesInWindow = 0
-            fpsWindowStartNanos = frameTimeNanos
+        val effectiveHz = resolveEffectiveTargetHz()
+        val minIntervalNanos = if (activeOption == TargetFpsOption.UNLIMITED) {
+            0L
+        } else {
+            (1_000_000_000f / effectiveHz).toLong() - 1_500_000L
         }
 
-        onFrameUpdate(frameTimeNanos, currentMeasuredFps, currentFrameTimeMs)
+        if (lastDispatchedFrameNanos == 0L || (frameTimeNanos - lastDispatchedFrameNanos) >= minIntervalNanos) {
+            lastDispatchedFrameNanos = frameTimeNanos
+
+            if (windowStartNanos == 0L) {
+                windowStartNanos = frameTimeNanos
+            }
+            frameCountInWindow++
+            val elapsed = frameTimeNanos - windowStartNanos
+            if (elapsed >= 500_000_000L) {
+                _measuredFps.value = ((frameCountInWindow * 1_000_000_000L) / elapsed).toInt()
+                frameCountInWindow = 0
+                windowStartNanos = frameTimeNanos
+            }
+
+            frameCallbackAction?.invoke(frameTimeNanos)
+        }
+
         choreographer.postFrameCallback(this)
     }
 }

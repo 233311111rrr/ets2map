@@ -1,24 +1,23 @@
 import React, { useState, useRef } from 'react';
 import {
-   Smartphone,
-  Cpu,
+  Smartphone,
+  Tablet,
   Volume2,
   FolderGit2,
   CheckCircle2,
   FileCode2,
-  Gauge,
   Navigation,
-  Layers,
   Terminal,
-  ShieldCheck,
   Play,
   MapPin,
   Upload,
   Archive,
   Map as MapIcon,
-  RotateCcw
+  RotateCcw,
+  Move,
+  Sparkles
 } from 'lucide-react';
-import { DeliveryStageId, VoiceMappingEntry } from '../types';
+import { VoiceMappingEntry } from '../types';
 
 const INITIAL_VOICE_MAPPINGS: (VoiceMappingEntry & {
   prefixedFileName: string;
@@ -75,14 +74,33 @@ const INITIAL_VOICE_MAPPINGS: (VoiceMappingEntry & {
 
 const SOURCE_FILES = [
   {
-    path: 'app/src/main/java/com/ets2/trucksim/gps/map/ScsTileMapManager.kt',
-    title: 'ScsTileMapManager.kt (SCS_Map_Tiles 內建與免解壓 .zip 地圖索引引擎)',
-    desc: '支援 APK 內建 ETS2_Map_1.48.zip 與使用者手動導入任意 .zip 地圖包，透過 ZipFile 隨機讀取與 Localhost 18080 串流圖磚',
+    path: 'app/src/main/java/com/ets2/trucksim/gps/ui/Components.kt',
+    title: 'Components.kt (長按自由移動 DraggableHudWidget + 跨手機/平板自適應 AdaptiveScreenMetrics)',
+    desc: '移除分階段驗收切換器，使用 detectDragGesturesAfterLongPress 實作主畫面所有 UI 元件長按自由拖曳與螢幕比例記憶',
     highlights: [
-      'ActivityResultContracts.OpenDocument() 導入任意 .zip 地圖檔至 filesDir/maps/',
-      '使用 java.util.zip.ZipFile 建立 {z}/{x}/{y}.png 記憶體雜湊索引，零解壓縮等待時間且不佔雙倍空間',
-      '自動解析 ZIP 內或 assets/scs_map/TileMapInfo.json 的 ETS2 座標邊界與縮放層級 (Zoom 0~8, 512px)',
-      '內建 Localhost HTTP 圖磚伺服器 (127.0.0.1:18080/scs_tiles/{z}/{x}/{y}.png) 供 MapLibre 直接渲染'
+      'DraggableHudWidget：支援長按震動回饋、藍色拖曳指示框、防超出螢幕邊界與相對座標 (xFraction, yFraction) 持久化',
+      'AdaptiveScreenMetrics：透過 BoxWithConstraints 自動適配小手機 (<360dp)、標準手機、摺疊機與平板 (>=640dp)',
+      '平板與橫向模式下，設定面板與路徑點抽屜自動限寬 540dp 並停靠側邊，不遮擋主導航視野'
+    ]
+  },
+  {
+    path: 'app/src/main/java/com/ets2/trucksim/gps/map/ScsTileMapManager.kt',
+    title: 'ScsTileMapManager.kt (2K @2x 超清圖磚串流、Zoom 0~8 快取與免解壓 .zip 索引)',
+    desc: '內建 Zoom 0~5 核心 512px 高清圖磚，並透過 OkHttp 直接抓取與快取 Zoom 3~8 街道級圖磚 (最高 131,072×131,072 px)',
+    highlights: [
+      '搭配 MapLibre tileSize: 256 啟動 @2x Retina / 2K High-DPI 雙倍像素密度超採樣，清晰度提升 400%',
+      '解決跨協定 302 跳轉問題：Localhost:18080 直接由背景 OkHttp 下載並寫入 filesDir/tile_cache_2k/',
+      '支援 ActivityResultContracts.OpenDocument() 免解壓縮直接建立 .zip 地圖索引'
+    ]
+  },
+  {
+    path: 'app/src/main/java/com/ets2/trucksim/gps/ui/MainActivity.kt',
+    title: 'MainActivity.kt (全功能常駐主畫面 + 四大可長按拖曳 HUD 區塊)',
+    desc: '將頂部導航橫幅、雙圓形時速/限速儀表、FPS 計數器與右下角快捷列全面封裝為可長按移動元件',
+    highlights: [
+      '已徹底移除 2-1 ~ 2-4 驗收模式切換按鈕，所有進階語音、路徑點與遙測延伸功能預設全開',
+      '在設定頁提供「重置 UI 位置」按鈕，一鍵恢復四大 HUD 元件預設座標',
+      '每隔 5 秒與離開 App 時自動將卡車最後座標寫入本地'
     ]
   },
   {
@@ -92,65 +110,45 @@ const SOURCE_FILES = [
     highlights: [
       '專屬音檔目錄：app/src/main/assets/voice_tw/（已放入全部 47 個 .wav 與完整對照表）',
       '自動相容「純英文大寫新檔名 (TURN_LEFT.wav)」、「保留前綴檔名」與「原檔名 (turn_left.wav)」',
-      'AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK 短暫壓低背景音樂，播畢立即釋放焦點',
-      '缺音檔時僅提示或略過，絕不調用系統 TTS 合成語音取代'
-    ]
-  },
-  {
-    path: 'app/src/main/java/com/ets2/trucksim/gps/ui/MainActivity.kt',
-    title: 'MainActivity.kt (主畫面、連線驗證、.zip 地圖選擇器與 2-1~2-4 階段狀態機)',
-    desc: '整合啟動連線、離線內建地圖進入模式、OpenDocument .zip 導入器與每 5 秒位置保存',
-    highlights: [
-      '啟動畫面與主畫面皆可一鍵點擊「導入 .zip 地圖檔 (免解壓)」切換自訂地圖包',
-      '提供「直接使用 APK 內建 / 已導入 .zip 地圖進入主畫面」離線瀏覽模式',
-      '無遊戲座標時自動從柏林、慕尼黑、漢堡等 10 座德國城市隨機選取初始點',
-      '每隔 5 秒與 onPause 離開時自動將卡車最後座標寫入 SharedPreferences'
-    ]
-  },
-  {
-    path: 'app/src/main/java/com/ets2/trucksim/gps/engine/FrameRateController.kt',
-    title: 'FrameRateController.kt (30~185/無限 FPS 與 Surface 刷新率控制器)',
-    desc: '實作 Display.supportedModes 偵測、preferredDisplayModeId 切換與 Choreographer FPS 計數器',
-    highlights: [
-      '支援 30 / 60 / 120 / 144 / 165 / 185 / 無限 七段幀率設定',
-      '超過硬體螢幕上限時標示「裝置不支援」並自動以螢幕最高刷新率運作',
-      '支援低電量 (<=20%) 自動降幀至 60 FPS 開關'
-    ]
-  },
-  {
-    path: '.github/workflows/build.yml',
-    title: '.github/workflows/build.yml (自動下載 SCS_Map_Tiles 並編譯 APK)',
-    desc: 'GitHub Actions 自動下載 Unicor-p/SCS_Map_Tiles 的 ETS2_Map_1.48.zip 寫入 APK 並產出 Debug APK',
-    highlights: [
-      '編譯前自動執行 curl 下載 ETS2_Map_1.48.zip 至 app/src/main/assets/scs_map/',
-      '搭配 build.gradle.kts 的 noCompress += listOf("zip", "wav", "png") 確保高速隨機讀取',
-      '固定使用 ubuntu-24.04、JDK 17、Gradle 8.7 與 MapLibre 11.0.0 確保 100% 穩定編譯'
+      'AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK 短暫壓低背景音樂，播畢立即釋放焦點'
     ]
   }
 ];
 
+type DevicePreset = 'compact_phone' | 'standard_phone' | 'foldable' | 'tablet_landscape';
+
 export const AndroidProjectExplorer: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'stages' | 'map_pack' | 'source' | 'voice' | 'build'>('map_pack');
-  const [selectedStage, setSelectedStage] = useState<DeliveryStageId>('2-4');
+  const [activeTab, setActiveTab] = useState<'hud_sim' | 'map_pack' | 'voice' | 'source' | 'build'>('hud_sim');
   const [voiceMappings, setVoiceMappings] = useState(INITIAL_VOICE_MAPPINGS);
   const [unit, setUnit] = useState<'km/h' | 'mph'>('km/h');
-  const [simSpeedKmh, setSimSpeedKmh] = useState<number>(88);
-  const [simLimitKmh, setSimLimitKmh] = useState<number>(80);
+  const [simSpeedKmh, setSimSpeedKmh] = useState<number>(86);
+  const [simLimitKmh] = useState<number>(80);
   const [playingFile, setPlayingFile] = useState<string | null>(null);
+  const [devicePreset, setDevicePreset] = useState<DevicePreset>('tablet_landscape');
 
-  // 模擬或預覽使用者在網頁端測試上傳 .zip 地圖包
+  // 模擬長按自由移動的四個 HUD 元件座標 (百分比)
+  const defaultOffsets = {
+    topNav: { x: 3, y: 4 },
+    fpsBadge: { x: 82, y: 5 },
+    speedCluster: { x: 4, y: 68 },
+    quickControls: { x: 45, y: 76 }
+  };
+  const [hudPos, setHudPos] = useState(defaultOffsets);
+  const [draggingKey, setDraggingKey] = useState<keyof typeof defaultOffsets | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
   const [customZipInfo, setCustomZipInfo] = useState<{
     name: string;
     sizeMb: string;
     status: string;
     isCustom: boolean;
   }>({
-    name: 'ETS2_Map_1.48.zip (APK 內建 Unicor-p/SCS_Map_Tiles)',
-    sizeMb: '154.79 MB (CI 自動封裝 + 內建 Zoom 0~2 基底)',
-    status: '已載入 TileMapInfo.json • ETS2 v1.48.1.6 • 512px 圖磚 • Zoom 0~8',
+    name: 'ETS2_Map_1.48.zip (APK 內建 2K @2x High-DPI 圖磚包)',
+    sizeMb: '154.79 MB (CI 自動封裝 + 內建 105 張 Zoom 0~5 2K 高清圖磚)',
+    status: '已啟用 2K Retina 超採樣 (tileSize: 256) • 最高解析度 131,072 × 131,072 px',
     isCustom: false
   });
-  const [previewTileCoord, setPreviewTileCoord] = useState<{ z: number; x: number; y: number }>({ z: 1, x: 1, y: 0 });
+  const [previewResolutionMode, setPreviewResolutionMode] = useState<'2k_germany_z4' | '4k_europe_z3' | 'berlin_z5'>('2k_germany_z4');
   const zipInputRef = useRef<HTMLInputElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -181,10 +179,33 @@ export const AndroidProjectExplorer: React.FC = () => {
     setCustomZipInfo({
       name: file.name,
       sizeMb: `${sizeMb} MB`,
-      status: `免解壓縮 ZipFile 索引建立完成！已掛載 ${file.name} 至 Localhost:18080 圖磚伺服器`,
+      status: `免解壓縮 2K ZipFile 索引建立完成！已掛載 ${file.name} 至 Localhost:18080 圖磚伺服器`,
       isCustom: true
     });
   };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingKey || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left - 60) / rect.width) * 100;
+    const relY = ((e.clientY - rect.top - 24) / rect.height) * 100;
+    setHudPos((prev) => ({
+      ...prev,
+      [draggingKey]: {
+        x: Math.max(1, Math.min(82, relX)),
+        y: Math.max(2, Math.min(82, relY))
+      }
+    }));
+  };
+
+  const presetDimensions: Record<DevicePreset, { label: string; widthClass: string; heightClass: string; scale: number }> = {
+    compact_phone: { label: '小尺寸手機 (360dp 直向)', widthClass: 'max-w-[360px]', heightClass: 'h-[540px]', scale: 0.85 },
+    standard_phone: { label: '標準手機 (412dp 直向)', widthClass: 'max-w-[420px]', heightClass: 'h-[580px]', scale: 0.95 },
+    foldable: { label: '摺疊機展開 (768dp)', widthClass: 'max-w-[680px]', heightClass: 'h-[520px]', scale: 1.05 },
+    tablet_landscape: { label: '平板 / 車機橫向 (1024dp 2K)', widthClass: 'max-w-full', heightClass: 'h-[520px]', scale: 1.12 }
+  };
+
+  const activePreset = presetDimensions[devicePreset];
 
   return (
     <div className="min-h-screen bg-[#0B0E14] text-[#F8FAFC] flex flex-col font-sans">
@@ -198,16 +219,25 @@ export const AndroidProjectExplorer: React.FC = () => {
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight">ETS2 TruckSim GPS</h1>
               <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                SCS_Map_Tiles 內建 + .zip 免解壓導入 + 47 語音檔
+                2K 超清地圖 • 長按自由移動 UI • 手機/平板自適應
               </span>
             </div>
             <p className="text-xs text-[#94A3B8]">
-              原生 Android 專案總覽 • Unicor-p/SCS_Map_Tiles 整合 • Google_map_TW[0] 47 音檔完整設定
+              已移除分階段驗收切換 • 全功能預設開啟 • 內建 105 張 Zoom 0~5 2K 高清圖磚與 47 語音檔
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 bg-[#0B0E14] p-1 rounded-lg border border-[#262F40] flex-wrap">
+          <button
+            onClick={() => setActiveTab('hud_sim')}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
+              activeTab === 'hud_sim' ? 'bg-blue-600 text-white' : 'text-[#94A3B8] hover:text-white'
+            }`}
+          >
+            <Move className="w-3.5 h-3.5" />
+            長按自由移動 UI & 手機/平板自適應預覽
+          </button>
           <button
             onClick={() => setActiveTab('map_pack')}
             className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
@@ -215,7 +245,7 @@ export const AndroidProjectExplorer: React.FC = () => {
             }`}
           >
             <MapIcon className="w-3.5 h-3.5" />
-            SCS 地圖包與 .zip 導入入口
+            2K 高清地圖素材 & .zip 導入
           </button>
           <button
             onClick={() => setActiveTab('voice')}
@@ -224,16 +254,7 @@ export const AndroidProjectExplorer: React.FC = () => {
             }`}
           >
             <Volume2 className="w-3.5 h-3.5" />
-            台灣語音對照表 (47 音檔試聽)
-          </button>
-          <button
-            onClick={() => setActiveTab('stages')}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
-              activeTab === 'stages' ? 'bg-blue-600 text-white' : 'text-[#94A3B8] hover:text-white'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            分階段交付與 HUD 預覽
+            台灣語音對照表 (47 音檔)
           </button>
           <button
             onClick={() => setActiveTab('source')}
@@ -251,45 +272,210 @@ export const AndroidProjectExplorer: React.FC = () => {
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
-            APK 自動編譯與目錄指南
+            APK 編譯指南
           </button>
         </div>
       </header>
 
-      {/* 主內容區 */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+        {activeTab === 'hud_sim' && (
+          <div className="space-y-4">
+            {/* 螢幕尺寸切換與重置按鈕列 */}
+            <div className="bg-[#161B26] border border-[#262F40] rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-[#94A3B8] flex items-center gap-1.5 mr-2">
+                  <Tablet className="w-4 h-4 text-blue-400" />
+                  切換手機 / 平板螢幕尺寸：
+                </span>
+                {(Object.keys(presetDimensions) as DevicePreset[]).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setDevicePreset(key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                      devicePreset === key
+                        ? 'bg-blue-600 text-white border-blue-400'
+                        : 'bg-[#0B0E14] text-[#94A3B8] border-[#262F40] hover:text-white'
+                    }`}
+                  >
+                    {presetDimensions[key].label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHudPos(defaultOffsets)}
+                  className="px-3 py-1.5 rounded-lg bg-[#0B0E14] hover:bg-[#1E293B] text-sky-400 border border-sky-500/40 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  重置 UI 元件位置
+                </button>
+              </div>
+            </div>
+
+            {/* 互動式 2K 地圖與可拖曳 HUD 畫布 */}
+            <div className="flex justify-center">
+              <div
+                ref={containerRef}
+                onPointerMove={handlePointerMove}
+                onPointerUp={() => setDraggingKey(null)}
+                onPointerLeave={() => setDraggingKey(null)}
+                className={`w-full ${activePreset.widthClass} ${activePreset.heightClass} relative rounded-2xl border-2 border-[#334155] bg-[#0B0E14] overflow-hidden shadow-2xl select-none transition-all duration-300`}
+              >
+                {/* 底層：2K (2048x2048) 4x4 無縫拼接的德國核心區 Zoom 4 真實高清圖磚 */}
+                <div className="absolute inset-0 grid grid-cols-4 grid-rows-4 opacity-95 pointer-events-none">
+                  {[5, 6, 7, 8].map((y) =>
+                    [6, 7, 8, 9].map((x) => (
+                      <img
+                        key={`z4-${x}-${y}`}
+                        src={`/scs_map/Tiles/4/${x}/${y}.png`}
+                        alt={`2K Tile 4/${x}/${y}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ))
+                  )}
+                </div>
+
+                {/* 1. 可拖曳：頂部導航與貨運狀態橫幅 */}
+                <div
+                  onPointerDown={() => setDraggingKey('topNav')}
+                  style={{ left: `${hudPos.topNav.x}%`, top: `${hudPos.topNav.y}%` }}
+                  className={`absolute z-20 cursor-grab active:cursor-grabbing max-w-md w-[86%] sm:w-[420px] rounded-xl bg-[#161B26]/95 border p-3 shadow-xl transition-shadow ${
+                    draggingKey === 'topNav' ? 'border-sky-400 ring-2 ring-sky-400/40' : 'border-[#262F40]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] text-sky-400 font-bold mb-1">
+                    <span>✥ 按住可隨意拖曳移動 • 2K @2x 超清導航中</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        playVoiceSample('IN_300_METERS_TURN_RIGHT_2.wav');
+                      }}
+                      className="px-2 py-0.5 rounded bg-blue-600 text-white flex items-center gap-1"
+                    >
+                      <Play className="w-2.5 h-2.5" />
+                      語音播報
+                    </button>
+                  </div>
+                  <div className="text-sm font-bold text-white">
+                    在 300 公尺處，向右轉 (前往 漢堡 Hamburg)
+                  </div>
+                  <div className="text-[11px] text-blue-300 mt-1 flex items-center justify-between">
+                    <span>貨運任務：精密機械 (柏林 → 漢堡)</span>
+                    <span className="font-mono text-emerald-400">剩餘 165 分</span>
+                  </div>
+                </div>
+
+                {/* 2. 可拖曳：FPS 計數器膠囊 */}
+                <div
+                  onPointerDown={() => setDraggingKey('fpsBadge')}
+                  style={{ left: `${hudPos.fpsBadge.x}%`, top: `${hudPos.fpsBadge.y}%` }}
+                  className={`absolute z-20 cursor-grab active:cursor-grabbing rounded-lg bg-[#0B0E14]/95 border px-3 py-1.5 font-mono text-xs font-bold text-emerald-400 shadow-lg ${
+                    draggingKey === 'fpsBadge' ? 'border-sky-400 ring-2 ring-sky-400/40' : 'border-emerald-500/60'
+                  }`}
+                >
+                  120 FPS • 2K
+                </div>
+
+                {/* 3. 可拖曳：雙圓形時速與限速徽章 */}
+                <div
+                  onPointerDown={() => setDraggingKey('speedCluster')}
+                  style={{
+                    left: `${hudPos.speedCluster.x}%`,
+                    top: `${hudPos.speedCluster.y}%`,
+                    transform: `scale(${activePreset.scale})`,
+                    transformOrigin: 'top left'
+                  }}
+                  className={`absolute z-20 cursor-grab active:cursor-grabbing flex items-center gap-3 p-2 rounded-2xl ${
+                    draggingKey === 'speedCluster' ? 'bg-sky-500/20 border-2 border-sky-400' : ''
+                  }`}
+                >
+                  <div
+                    onClick={() => setUnit(unit === 'km/h' ? 'mph' : 'km/h')}
+                    className={`w-16 h-16 rounded-full flex flex-col items-center justify-center border-[5px] shadow-xl ${
+                      isOverspeed
+                        ? 'bg-red-600 border-red-800 text-white'
+                        : 'bg-slate-50 border-red-500 text-slate-900'
+                    }`}
+                  >
+                    <span className="text-lg font-extrabold font-mono leading-none">{displayLimit}</span>
+                    <span className="text-[9px] font-bold mt-0.5">限速</span>
+                  </div>
+
+                  <div
+                    onClick={() => setUnit(unit === 'km/h' ? 'mph' : 'km/h')}
+                    className={`w-20 h-20 rounded-full flex flex-col items-center justify-center border-2 shadow-xl ${
+                      isOverspeed
+                        ? 'bg-red-950/95 border-red-500 text-red-200'
+                        : 'bg-[#161B26]/95 border-blue-500 text-white'
+                    }`}
+                  >
+                    <span className="text-2xl font-extrabold font-mono leading-none">{displaySpeed}</span>
+                    <span className="text-[10px] text-[#94A3B8] font-semibold mt-1">{unit}</span>
+                  </div>
+                </div>
+
+                {/* 4. 可拖曳：右下角快捷控制列 */}
+                <div
+                  onPointerDown={() => setDraggingKey('quickControls')}
+                  style={{ left: `${hudPos.quickControls.x}%`, top: `${hudPos.quickControls.y}%` }}
+                  className={`absolute z-20 cursor-grab active:cursor-grabbing flex flex-wrap items-center gap-2 p-2 rounded-xl bg-[#161B26]/90 border shadow-xl ${
+                    draggingKey === 'quickControls' ? 'border-sky-400 ring-2 ring-sky-400/40' : 'border-[#334155]'
+                  }`}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSimSpeedKmh(simSpeedKmh > 80 ? 74 : 95);
+                      if (simSpeedKmh <= 80) playVoiceSample('SPEED_WARNING_BEEP_1.wav');
+                    }}
+                    className="px-2.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold"
+                  >
+                    {isOverspeed ? '恢復正常車速 (74)' : '模擬超速 (95 + 嘟嘟聲)'}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      zipInputRef.current?.click();
+                    }}
+                    className="px-2.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold"
+                  >
+                    導入.zip地圖
+                  </button>
+                  <span className="px-2.5 py-1.5 rounded-full bg-[#0B0E14] text-xs text-slate-300 border border-[#262F40]">
+                    車頭朝上
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'map_pack' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* 左側：Unicor-p/SCS_Map_Tiles 內建與 .zip 導入模擬面板 */}
-            <div className="lg:col-span-7 space-y-4">
+            {/* 左側：2K 高畫質升級說明與 .zip 導入 */}
+            <div className="lg:col-span-6 space-y-4">
               <div className="bg-[#161B26] border border-emerald-500/40 rounded-xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-mono text-emerald-400 uppercase">
-                      Unicor-p/SCS_Map_Tiles + Custom .zip Importer
+                    <span className="text-xs font-mono text-emerald-400 uppercase flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      2K / 1080p High-DPI Map Engine
                     </span>
                     <h2 className="text-lg font-bold mt-0.5">
-                      APK 內建 ETS2 地圖與「免解壓縮 .zip 地圖檔」導入入口
+                      2K 超清地圖素材升級與免解壓 `.zip` 導入入口
                     </h2>
                   </div>
                   <Archive className="w-6 h-6 text-emerald-400" />
                 </div>
 
-                <p className="text-xs text-[#94A3B8] leading-relaxed">
-                  已將 <code className="text-emerald-300">https://github.com/Unicor-p/SCS_Map_Tiles</code> 的{' '}
-                  <code className="text-emerald-300">TileMapInfo.json</code> 與基礎離線圖磚直接寫入專案{' '}
-                  <code className="text-blue-300">app/src/main/assets/scs_map/</code>，並在 GitHub Actions 編譯 APK 時自動下載完整{' '}
-                  <code className="text-emerald-300">ETS2_Map_1.48.zip (155MB)</code> 封裝進 APK。同時在 App 啟動畫面與設定頁提供下方「導入 .zip 地圖檔」入口：
-                </p>
-
-                {/* 目前掛載的地圖包狀態卡片 (仿 Android 端 ScsMapPackCard) */}
                 <div className="bg-[#0B0E14] border border-[#262F40] rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-emerald-300">
                       🗺️ 目前作用中地圖包 (ScsTileMapManager)
                     </span>
                     <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
-                      {customZipInfo.isCustom ? '自訂 .ZIP 免解壓索引中' : 'APK 內建預設地圖'}
+                      {customZipInfo.isCustom ? '自訂 .ZIP 2K 索引中' : '2K @2x Retina 超採樣'}
                     </span>
                   </div>
 
@@ -299,7 +485,7 @@ export const AndroidProjectExplorer: React.FC = () => {
                       <div className="font-mono font-bold text-white mt-0.5 truncate">{customZipInfo.name}</div>
                     </div>
                     <div className="bg-[#161B26] p-2.5 rounded-lg border border-[#262F40]">
-                      <div className="text-[#94A3B8] text-[11px]">檔案大小 / 讀取模式</div>
+                      <div className="text-[#94A3B8] text-[11px]">內建高清圖磚 / 讀取模式</div>
                       <div className="font-mono font-bold text-emerald-400 mt-0.5">{customZipInfo.sizeMb}</div>
                     </div>
                   </div>
@@ -324,108 +510,120 @@ export const AndroidProjectExplorer: React.FC = () => {
                       <Upload className="w-4 h-4" />
                       導入 .zip 地圖檔 (免解壓縮直接建立索引)
                     </button>
-                    {customZipInfo.isCustom && (
-                      <button
-                        onClick={() =>
-                          setCustomZipInfo({
-                            name: 'ETS2_Map_1.48.zip (APK 內建 Unicor-p/SCS_Map_Tiles)',
-                            sizeMb: '154.79 MB (CI 自動封裝 + 內建 Zoom 0~2 基底)',
-                            status: '已恢復為 APK 內建 Unicor-p/SCS_Map_Tiles 預設地圖',
-                            isCustom: false
-                          })
-                        }
-                        className="py-2.5 px-3 rounded-lg bg-[#161B26] hover:bg-[#1E293B] text-[#CBD5E1] border border-[#334155] text-xs font-semibold flex items-center gap-1.5 transition"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        恢復內建地圖
-                      </button>
-                    )}
                   </div>
                 </div>
 
-                {/* TileMapInfo.json 參數一覽 */}
-                <div className="bg-[#0B0E14] border border-[#262F40] rounded-xl p-4">
-                  <div className="text-xs font-bold text-blue-400 mb-2">
-                    內建 `app/src/main/assets/scs_map/TileMapInfo.json` 座標與圖磚參數
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-                    <div className="p-2 rounded bg-[#161B26]">
-                      <span className="text-[#94A3B8] block text-[10px]">遊戲版本</span>
-                      ets2 (1.48.1.6)
-                    </div>
-                    <div className="p-2 rounded bg-[#161B26]">
-                      <span className="text-[#94A3B8] block text-[10px]">圖磚解析度</span>
-                      512 x 512 px
-                    </div>
-                    <div className="p-2 rounded bg-[#161B26]">
-                      <span className="text-[#94A3B8] block text-[10px]">縮放層級</span>
-                      Zoom 0 ~ 8
-                    </div>
-                    <div className="p-2 rounded bg-[#161B26]">
-                      <span className="text-[#94A3B8] block text-[10px]">SCS X/Y 範圍</span>
-                      -94621 ~ +93782
-                    </div>
-                  </div>
+                <div className="space-y-2 text-xs text-[#CBD5E1]">
+                  <div className="font-bold text-white">為什麼現在畫質達到 2K / 1080p 超清等級？</div>
+                  <ul className="space-y-1.5 text-[#94A3B8]">
+                    <li>
+                      1. <strong>內建 Zoom 3 (4096×4096 4K) 與 Zoom 4~5 (2048×2048 2K) 實體圖磚</strong>：已從{' '}
+                      <code>Unicor-p/SCS_Map_Tiles</code> 抓取 105 張高階縮放圖磚直接寫入{' '}
+                      <code>app/src/main/assets/scs_map/Tiles/</code>。
+                    </li>
+                    <li>
+                      2. <strong>啟用 MapLibre `@2x Retina` 雙倍像素密度超採樣</strong>：將 512×512 圖磚以{' '}
+                      <code>tileSize: 256</code> 渲染，每個邏輯區塊擁有 4 倍像素密度。
+                    </li>
+                    <li>
+                      3. <strong>OkHttp 原生高階圖磚代理快取</strong>：自動下載並快取 Zoom 6~8 超清街道級圖磚至{' '}
+                      <code>filesDir/tile_cache_2k/</code>。
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
 
-            {/* 右側：真實內建的 Unicor-p/SCS_Map_Tiles 圖磚檢視器 */}
-            <div className="lg:col-span-5 bg-[#161B26] border border-[#262F40] rounded-xl p-5 flex flex-col justify-between space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-bold flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-emerald-400" />
-                    APK 內建 `assets/scs_map/Tiles/` 實體圖磚預覽
-                  </h3>
-                  <span className="text-xs font-mono text-[#94A3B8]">
-                    Tiles/{previewTileCoord.z}/{previewTileCoord.x}/{previewTileCoord.y}.png
-                  </span>
-                </div>
-                <p className="text-xs text-[#94A3B8] mb-3">
-                  以下直接渲染已寫入專案 <code className="text-emerald-300">app/src/main/assets/scs_map/Tiles/</code> 的{' '}
-                  <code className="text-emerald-300">Unicor-p/SCS_Map_Tiles</code> 實體 PNG 圖磚：
-                </p>
-
-                <div className="flex gap-2 mb-3">
-                  {[
-                    { label: 'Zoom 0 全歐總覽 (0/0/0)', z: 0, x: 0, y: 0 },
-                    { label: 'Zoom 1 西北歐 (1/0/0)', z: 1, x: 0, y: 0 },
-                    { label: 'Zoom 1 中東歐 (1/1/0)', z: 1, x: 1, y: 0 },
-                    { label: 'Zoom 2 德國核心區 (2/2/1)', z: 2, x: 2, y: 1 }
-                  ].map((item) => (
-                    <button
-                      key={`${item.z}-${item.x}-${item.y}`}
-                      onClick={() => setPreviewTileCoord({ z: item.z, x: item.x, y: item.y })}
-                      className={`px-2.5 py-1.5 rounded text-[11px] font-semibold border transition ${
-                        previewTileCoord.z === item.z &&
-                        previewTileCoord.x === item.x &&
-                        previewTileCoord.y === item.y
-                          ? 'bg-emerald-600 text-white border-emerald-400'
-                          : 'bg-[#0B0E14] text-[#94A3B8] border-[#262F40] hover:text-white'
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="aspect-square w-full bg-[#0B0E14] border border-[#262F40] rounded-xl overflow-hidden flex items-center justify-center relative">
-                  <img
-                    src={`/scs_map/Tiles/${previewTileCoord.z}/${previewTileCoord.x}/${previewTileCoord.y}.png`}
-                    alt="SCS Map Tile Preview"
-                    className="w-full h-full object-contain"
-                  />
-                  <div className="absolute bottom-2 right-2 bg-[#0B0E14]/90 border border-[#262F40] px-2.5 py-1 rounded text-[11px] font-mono text-emerald-400">
-                    512x512 PNG • SCS_Map_Tiles
-                  </div>
+            {/* 右側：2K (2048x2048) 4x4 拼接高清實機圖磚預覽 */}
+            <div className="lg:col-span-6 bg-[#161B26] border border-[#262F40] rounded-xl p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-emerald-400" />
+                  內建 2K (2048×2048 px) 4×4 高清拼接圖磚實測預覽
+                </h3>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setPreviewResolutionMode('2k_germany_z4')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border ${
+                      previewResolutionMode === '2k_germany_z4'
+                        ? 'bg-emerald-600 text-white border-emerald-400'
+                        : 'bg-[#0B0E14] text-[#94A3B8] border-[#262F40]'
+                    }`}
+                  >
+                    Zoom 4 德國公路網 (2048×2048 2K)
+                  </button>
+                  <button
+                    onClick={() => setPreviewResolutionMode('berlin_z5')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border ${
+                      previewResolutionMode === 'berlin_z5'
+                        ? 'bg-emerald-600 text-white border-emerald-400'
+                        : 'bg-[#0B0E14] text-[#94A3B8] border-[#262F40]'
+                    }`}
+                  >
+                    Zoom 5 近景細節 (1024×1024 FHD)
+                  </button>
+                  <button
+                    onClick={() => setPreviewResolutionMode('4k_europe_z3')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border ${
+                      previewResolutionMode === '4k_europe_z3'
+                        ? 'bg-emerald-600 text-white border-emerald-400'
+                        : 'bg-[#0B0E14] text-[#94A3B8] border-[#262F40]'
+                    }`}
+                  >
+                    Zoom 3 中歐全覽 (2048×2048 2K)
+                  </button>
                 </div>
               </div>
 
-              <div className="text-[11px] text-[#94A3B8] bg-[#0B0E14] p-3 rounded-lg border border-[#262F40]">
-                💡 <strong>離線與自訂擴充說明</strong>：除了 GitHub Actions 自動將完整 155MB 的{' '}
-                <code>ETS2_Map_1.48.zip</code> 打包進 APK 外，您隨時可在手機端點擊「導入 .zip 地圖檔」載入更新版或含 ProMods 的{' '}
-                <code>.zip</code> 圖磚包。
+              <div className="aspect-square w-full bg-[#0B0E14] border border-[#262F40] rounded-xl overflow-hidden relative">
+                {previewResolutionMode === '2k_germany_z4' && (
+                  <div className="w-full h-full grid grid-cols-4 grid-rows-4">
+                    {[5, 6, 7, 8].map((y) =>
+                      [6, 7, 8, 9].map((x) => (
+                        <img
+                          key={`z4-${x}-${y}`}
+                          src={`/scs_map/Tiles/4/${x}/${y}.png`}
+                          alt={`Tile 4/${x}/${y}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {previewResolutionMode === 'berlin_z5' && (
+                  <div className="w-full h-full grid grid-cols-2 grid-rows-2">
+                    {[12, 13].map((y) =>
+                      [15, 16].map((x) => (
+                        <img
+                          key={`z5-${x}-${y}`}
+                          src={`/scs_map/Tiles/5/${x}/${y}.png`}
+                          alt={`Tile 5/${x}/${y}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {previewResolutionMode === '4k_europe_z3' && (
+                  <div className="w-full h-full grid grid-cols-4 grid-rows-4">
+                    {[2, 3, 4, 5].map((y) =>
+                      [2, 3, 4, 5].map((x) => (
+                        <img
+                          key={`z3-${x}-${y}`}
+                          src={`/scs_map/Tiles/3/${x}/${y}.png`}
+                          alt={`Tile 3/${x}/${y}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
+
+                <div className="absolute bottom-2 right-2 bg-[#0B0E14]/90 border border-emerald-500/40 px-3 py-1 rounded text-[11px] font-mono text-emerald-400">
+                  2048 × 2048 (2K UHD) • @2x High-DPI Native Assets
+                </div>
               </div>
             </div>
           </div>
@@ -440,13 +638,11 @@ export const AndroidProjectExplorer: React.FC = () => {
                   ETS2「Google Map 台灣語音模組 2」— 47 個實體音檔完整對照表 (`etsmod.zip`)
                 </h2>
                 <p className="text-xs text-[#94A3B8] mt-1">
-                  音檔與對照表專屬放置目錄：<code className="text-emerald-300 font-mono">app/src/main/assets/voice_tw/</code>
-                  （已將您上傳的 <strong>47 個 .wav 音檔</strong>、<code>Google_map_TW[0].txt</code> 與{' '}
-                  <code>Google_map_TW[0]_完整對照表.txt</code> 全數寫入此目錄，點擊右側按鈕可直接線上試聽真實音檔）
+                  音檔專屬放置目錄：<code className="text-emerald-300 font-mono">app/src/main/assets/voice_tw/</code>
                 </p>
               </div>
               <span className="text-xs font-mono px-3 py-1 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                共 {voiceMappings.length} / 47 個 .wav 實體音檔已就緒
+                共 {voiceMappings.length} / 47 個 .wav 實體音檔已內建
               </span>
             </div>
 
@@ -455,7 +651,7 @@ export const AndroidProjectExplorer: React.FC = () => {
                 <thead>
                   <tr className="border-b border-[#262F40] text-[#94A3B8]">
                     <th className="py-2.5 px-3">#</th>
-                    <th className="py-2.5 px-3">新檔名（純英文大寫，zip 內實體檔）</th>
+                    <th className="py-2.5 px-3">新檔名（純英文大寫）</th>
                     <th className="py-2.5 px-3">保留原前綴大寫檔名</th>
                     <th className="py-2.5 px-3">原檔名 (ETS2)</th>
                     <th className="py-2.5 px-3">中文語音說明</th>
@@ -502,192 +698,6 @@ export const AndroidProjectExplorer: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'stages' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* 左側：階段 2-1 ~ 2-4 驗收切換器 */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="bg-[#161B26] border border-[#262F40] rounded-xl p-5">
-                <h2 className="text-base font-bold mb-3 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-blue-400" />
-                  分階段交付驗收清單 (2-1 至 2-4)
-                </h2>
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                  {(['2-1', '2-2', '2-3', '2-4'] as DeliveryStageId[]).map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => setSelectedStage(st)}
-                      className={`py-2.5 px-3 rounded-lg text-xs font-bold border transition ${
-                        selectedStage === st
-                          ? 'bg-blue-600 border-blue-400 text-white'
-                          : 'bg-[#0B0E14] border-[#262F40] text-[#94A3B8] hover:text-white'
-                      }`}
-                    >
-                      階段 {st}
-                    </button>
-                  ))}
-                </div>
-
-                {selectedStage === '2-1' && (
-                  <div className="space-y-2.5 text-sm text-[#CBD5E1]">
-                    <div className="font-bold text-white">階段 2-1：基礎連線、最後座標保存與雙圓形時速/限速儀表</div>
-                    <ul className="space-y-2 text-xs leading-relaxed">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>開啟 App 先顯示連線畫面（記住上次輸入的 IP 與埠號），或直接點擊使用 APK 內建 SCS_Map_Tiles 地圖進入。</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>無遊戲數據時讀取本地最後座標；首次開啟無保存座標時，自動於德國 10 座城市隨機選取初始點。</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>角落雙圓形徽章（目前時速 + 當前路段限速），支援點擊切換 km/h 與 mph，超速時圓形自動變色警示。</span>
-                      </li>
-                    </ul>
-                  </div>
-                )}
-
-                {selectedStage === '2-2' && (
-                  <div className="space-y-2.5 text-sm text-[#CBD5E1]">
-                    <div className="font-bold text-white">階段 2-2：30~185/無限 幀數設定與流暢度最佳化</div>
-                    <ul className="space-y-2 text-xs leading-relaxed">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>設定頁提供 30、60、120、144、165、185、無限（跟隨螢幕最高刷新率）；超過硬體上限時標示「裝置不支援」。</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>使用 Window preferredDisplayModeId 與 Choreographer 實作，並提供即時 FPS 計數器與低電量自動降幀開關。</span>
-                      </li>
-                    </ul>
-                  </div>
-                )}
-
-                {selectedStage === '2-3' && (
-                  <div className="space-y-2.5 text-sm text-[#CBD5E1]">
-                    <div className="font-bold text-white">階段 2-3：地圖互動標點、POI 視窗與多路徑點路線規劃</div>
-                    <ul className="space-y-2 text-xs leading-relaxed">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>手指滑動地圖自動暫停跟隨並浮現「回到卡車」按鈕；支援車頭朝上與北方朝上切換。</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>點選任意位置或維修廠、加油站、休息站、城市時跳出小視窗：「新增路徑點」或「重新標點(改成唯一目的地)」。</span>
-                      </li>
-                    </ul>
-                  </div>
-                )}
-
-                {selectedStage === '2-4' && (
-                  <div className="space-y-2.5 text-sm text-[#CBD5E1]">
-                    <div className="font-bold text-white">階段 2-4：台灣語音模組 2 (47音檔)、SCS_Map_Tiles 內建與延伸遙測</div>
-                    <ul className="space-y-2 text-xs leading-relaxed">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>內建 `etsmod.zip` 全部 47 個 `.wav` 台灣語音檔與完整對照表，支援三種檔名格式自動匹配與音訊焦點閃避。</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>內建 `Unicor-p/SCS_Map_Tiles` 地圖並支援免解壓縮 `.zip` 地圖檔導入入口 (`ScsTileMapManager.kt`)。</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>讀取貨運資訊並提供「一鍵導航到貨運目的地」；低油量、車損過高、疲勞不足時自動提示並標出附近站點。</span>
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 右側：Android 戰術 HUD 互動預覽 */}
-            <div className="lg:col-span-5 bg-[#161B26] border border-[#262F40] rounded-xl p-5 flex flex-col justify-between space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#94A3B8] flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-blue-400" />
-                  Android 端雙圓形時速/限速與超速警示預覽
-                </span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  120 FPS
-                </span>
-              </div>
-
-              <div className="relative h-64 rounded-xl bg-[#0B0E14] border border-[#262F40] overflow-hidden p-4 flex flex-col justify-between">
-                <div className="bg-[#161B26]/95 border border-[#262F40] rounded-lg px-3 py-2 flex items-center justify-between">
-                  <div>
-                    <div className="text-[10px] text-emerald-400 font-bold">
-                      已載入 ETS2_Map_1.48.zip • 德國 柏林 (Berlin)
-                    </div>
-                    <div className="text-xs font-bold text-white">
-                      在 300 公尺處，向右轉 (IN_300_METERS_TURN_RIGHT_2.wav)
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => playVoiceSample('IN_300_METERS_TURN_RIGHT_2.wav')}
-                    className="px-2 py-1 rounded bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1"
-                  >
-                    <Play className="w-3 h-3" />
-                    播報
-                  </button>
-                </div>
-
-                {/* 雙圓形時速與限速徽章 */}
-                <div className="flex items-end justify-between">
-                  <div
-                    onClick={() => setUnit(unit === 'km/h' ? 'mph' : 'km/h')}
-                    className="flex items-center gap-3 cursor-pointer select-none"
-                    title="點擊切換 km/h 與 mph"
-                  >
-                    <div
-                      className={`w-16 h-16 rounded-full flex flex-col items-center justify-center border-[5px] transition ${
-                        isOverspeed
-                          ? 'bg-red-600 border-red-800 text-white shadow-lg shadow-red-600/40'
-                          : 'bg-slate-50 border-red-500 text-slate-900'
-                      }`}
-                    >
-                      <span className="text-lg font-extrabold font-mono leading-none">{displayLimit}</span>
-                      <span className="text-[9px] font-bold mt-0.5">限速</span>
-                    </div>
-
-                    <div
-                      className={`w-20 h-20 rounded-full flex flex-col items-center justify-center border-2 transition ${
-                        isOverspeed
-                          ? 'bg-red-950/90 border-red-500 text-red-200 shadow-lg shadow-red-500/30'
-                          : 'bg-[#161B26]/95 border-blue-500 text-white'
-                      }`}
-                    >
-                      <span className="text-2xl font-extrabold font-mono leading-none">{displaySpeed}</span>
-                      <span className="text-[10px] text-[#94A3B8] font-semibold mt-1">{unit}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right space-y-1">
-                    <div className="text-[11px] text-[#94A3B8]">點擊圓形切換 km/h • mph</div>
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => setSimSpeedKmh(72)}
-                        className="px-2.5 py-1 rounded bg-[#161B26] border border-[#262F40] text-xs hover:border-blue-400"
-                      >
-                        正常 (72)
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSimSpeedKmh(96);
-                          playVoiceSample('SPEED_WARNING_BEEP_1.wav');
-                        }}
-                        className="px-2.5 py-1 rounded bg-red-950/60 border border-red-500/50 text-xs text-red-300 hover:bg-red-900/60"
-                      >
-                        超速 (96 + 嘟嘟聲)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'source' && (
           <div className="space-y-4">
             {SOURCE_FILES.map((file) => (
@@ -722,37 +732,36 @@ export const AndroidProjectExplorer: React.FC = () => {
           <div className="bg-[#161B26] border border-[#262F40] rounded-xl p-6 space-y-5">
             <h2 className="text-base font-bold flex items-center gap-2">
               <FolderGit2 className="w-5 h-5 text-emerald-400" />
-              檔案放置目錄總覽與 GitHub Actions 自動編譯 APK 指南
+              2K 地圖與語音檔案目錄結構總覽
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="bg-[#0B0E14] border border-emerald-500/40 rounded-lg p-4 space-y-2">
                 <div className="font-bold text-emerald-400">
-                  1. 台灣語音檔與對照表專屬目錄（已放入全部 47 個 .wav）
+                  1. 台灣語音檔與對照表專屬目錄（已內建 47 個 .wav）
                 </div>
                 <pre className="font-mono text-[11px] text-[#CBD5E1] overflow-x-auto leading-relaxed">
 {`app/src/main/assets/voice_tw/
 ├── voice_mapping.json               (47 筆完整對照設定)
 ├── Google_map_TW[0].txt             (原始清單)
 ├── Google_map_TW[0]_完整對照表.txt   (47 筆中英對照文檔)
-├── TURN_LEFT.wav                    (向左轉)
-├── IN_300_METERS_TURN_LEFT_1.wav    (在 300 公尺處，向左轉)
-└── ... (共 47 個 .wav 實體音檔)`}
+└── *.wav                            (共 47 個實體音檔)`}
                 </pre>
               </div>
 
               <div className="bg-[#0B0E14] border border-blue-500/40 rounded-lg p-4 space-y-2">
                 <div className="font-bold text-blue-400">
-                  2. 內建 SCS_Map_Tiles 地圖目錄與 CI 自動封裝
+                  2. 2K 超清 SCS_Map_Tiles 地圖目錄（含 Zoom 0~5 105 張高清圖磚 + CI 完整包）
                 </div>
                 <pre className="font-mono text-[11px] text-[#CBD5E1] overflow-x-auto leading-relaxed">
 {`app/src/main/assets/scs_map/
 ├── TileMapInfo.json                 (Unicor-p/SCS_Map_Tiles 座標定義)
-├── ETS2_Map_1.48.zip                (GitHub Actions 編譯時自動下載封裝)
+├── ETS2_Map_1.48.zip                (GitHub Actions 自動下載封裝 Zoom 0~8)
 └── Tiles/
-    ├── 0/0/0.png                    (內建離線全歐底圖)
-    ├── 1/{0..1}/{0..1}.png
-    └── 2/{0..3}/{0..3}.png`}
+    ├── 0..2/                        (基礎全歐圖磚)
+    ├── 3/{0..7}/{0..7}.png          (4096×4096 4K 歐洲路網圖磚)
+    ├── 4/{6..9}/{5..8}.png          (2048×2048 2K 德國核心高速公路圖磚)
+    └── 5/{15..16}/{12..13}.png      (1080p 城市近景圖磚)`}
                 </pre>
               </div>
             </div>

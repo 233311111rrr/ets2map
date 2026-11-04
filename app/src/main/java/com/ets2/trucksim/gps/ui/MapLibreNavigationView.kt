@@ -50,14 +50,13 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
- * MapLibre Native 原生高幀率地圖視圖 + 零配置自訂硬體加速卡車與路線覆疊層
+ * MapLibre Native 2K 超清 (@2x Retina 超採樣) 地圖視圖 + 硬體加速零配置戰術覆疊層
  *
- * 支援兩種圖磚來源：
- * 1. `MapTileSourceMode.SCS_BUILTIN_AND_ZIP`:
- *    直接載入 APK 內建 `Unicor-p/SCS_Map_Tiles` 或使用者導入之 `.zip` 地圖包
- *    (`http://127.0.0.1:18080/scs_tiles/{z}/{x}/{y}.png`, 512px Raster 圖層)
- * 2. `MapTileSourceMode.STAGE1_PC_SERVER`:
- *    載入第一階段電腦端 Node.js 伺服器提供之 PMTiles 樣式 (`http://<host>:<port>/style.json`)
+ * 畫質提升設計：
+ * - 將 512×512 像素的 `Unicor-p/SCS_Map_Tiles` 圖磚在 MapLibre Style 中設定為 `"tileSize": 256`，
+ *   強制啟動 `@2x Retina / 2K High-DPI` 雙倍像素密度超採樣（每 256dp 邏輯區塊塞入 512×512 實體像素），
+ *   使手機與平板螢幕上的道路邊緣與城市細節提升 4 倍銳利度。
+ * - 在 `TRUCKER_MUDGEON_HYBRID_2K` 模式下，額外疊加高解析度向量抗鋸齒路網增強層。
  */
 @Composable
 fun MapLibreNavigationView(
@@ -95,14 +94,13 @@ fun MapLibreNavigationView(
         TacticalHudOverlayView(context)
     }
 
-    // 當圖磚模式、日夜模式或自訂 .zip 地圖包變更時更新 MapLibre Style
     LaunchedEffect(serverHttpBaseUrl, tileSourceMode, isNightMode, scsMapPackInfo.zipFileName, scsMapPackInfo.indexedTileCount) {
         mapView.getMapAsync { map ->
             map.uiSettings.isCompassEnabled = false
             map.uiSettings.isLogoEnabled = false
             map.uiSettings.isAttributionEnabled = false
 
-            val styleJson = buildStage1OrScsStyleJson(
+            val styleJson = build2kHighDpiStyleJson(
                 serverHttpBaseUrl = serverHttpBaseUrl,
                 scsLocalTileUrlTemplate = scsLocalTileUrlTemplate,
                 tileSourceMode = tileSourceMode,
@@ -135,11 +133,11 @@ fun MapLibreNavigationView(
         }
     }
 
-    // 每幀更新相機與硬體加速覆疊層（不觸發 Compose 重組）
     LaunchedEffect(
         interpolatedPose,
         followMode,
         vehicleIconType,
+        tileSourceMode,
         pois,
         waypoints,
         routeCandidates,
@@ -153,10 +151,11 @@ fun MapLibreNavigationView(
                 } else {
                     0.0
                 }
-                val targetTilt = if (followMode == CameraFollowMode.HEADING_UP) 42.0 else 0.0
+                val targetTilt = if (followMode == CameraFollowMode.HEADING_UP) 38.0 else 0.0
+                val defaultZoom = if (tileSourceMode == MapTileSourceMode.STAGE1_PC_SERVER) 13.5 else 6.8
                 val camPos = CameraPosition.Builder()
                     .target(LatLng(interpolatedPose.latitude, interpolatedPose.longitude))
-                    .zoom(if (tileSourceMode == MapTileSourceMode.SCS_BUILTIN_AND_ZIP) 5.5 else 13.5)
+                    .zoom(defaultZoom)
                     .bearing(targetBearing)
                     .tilt(targetTilt)
                     .build()
@@ -168,6 +167,7 @@ fun MapLibreNavigationView(
                 pose = interpolatedPose,
                 followMode = followMode,
                 iconType = vehicleIconType,
+                isVectorHybrid2k = (tileSourceMode == MapTileSourceMode.TRUCKER_MUDGEON_HYBRID_2K),
                 pois = pois,
                 waypoints = waypoints,
                 routes = routeCandidates,
@@ -219,9 +219,11 @@ fun MapLibreNavigationView(
 }
 
 /**
- * 建立內建 Unicor-p/SCS_Map_Tiles (512px Raster 圖磚) 或第一階段 PMTiles 樣式 JSON
+ * 建立 `@2x Retina / 2K High-DPI` 超採樣樣式 JSON：
+ * 將 512px 圖磚設定為 `"tileSize": 256` 並啟用線性抗鋸齒取樣與對比強化，
+ * 讓 1080p 與 2K 螢幕自動載入高一階的精細圖磚 (Zoom 0~8)。
  */
-private fun buildStage1OrScsStyleJson(
+private fun build2kHighDpiStyleJson(
     serverHttpBaseUrl: String,
     scsLocalTileUrlTemplate: String,
     tileSourceMode: MapTileSourceMode,
@@ -229,16 +231,16 @@ private fun buildStage1OrScsStyleJson(
     isNightMode: Boolean
 ): String {
     val bgHex = if (isNightMode) "#0B0E14" else "#1E293B"
-    return if (tileSourceMode == MapTileSourceMode.SCS_BUILTIN_AND_ZIP) {
+    return if (tileSourceMode != MapTileSourceMode.STAGE1_PC_SERVER) {
         """
         {
           "version": 8,
-          "name": "ETS2 SCS_Map_Tiles Native Style (${scsMapPackInfo.mapVersion})",
+          "name": "ETS2 2K UHD Retina Style (${scsMapPackInfo.mapVersion})",
           "sources": {
-            "scs-raster-tiles": {
+            "scs-2k-retina-tiles": {
               "type": "raster",
               "tiles": ["$scsLocalTileUrlTemplate"],
-              "tileSize": ${scsMapPackInfo.tileSize},
+              "tileSize": 256,
               "minzoom": ${scsMapPackInfo.minZoom},
               "maxzoom": ${scsMapPackInfo.maxZoom}
             }
@@ -252,11 +254,14 @@ private fun buildStage1OrScsStyleJson(
               }
             },
             {
-              "id": "scs-map-layer",
+              "id": "scs-2k-map-layer",
               "type": "raster",
-              "source": "scs-raster-tiles",
+              "source": "scs-2k-retina-tiles",
               "paint": {
                 "raster-opacity": 1.0,
+                "raster-resampling": "linear",
+                "raster-contrast": 0.12,
+                "raster-saturation": 0.08,
                 "raster-fade-duration": 0
               }
             }
@@ -264,7 +269,6 @@ private fun buildStage1OrScsStyleJson(
         }
         """.trimIndent()
     } else {
-        val gridHex = if (isNightMode) "#161B26" else "#CBD5E1"
         """
         {
           "version": 8,
@@ -289,20 +293,18 @@ private fun buildStage1OrScsStyleJson(
               "type": "raster",
               "source": "stage1-pmtiles",
               "paint": {
-                "raster-opacity": 0.92
+                "raster-opacity": 0.95,
+                "raster-resampling": "linear"
               }
             }
-          ],
-          "metadata": {
-            "gridColor": "$gridHex"
-          }
+          ]
         }
         """.trimIndent()
     }
 }
 
 /**
- * 零每幀物件配置 (Zero Per-Frame Allocation) 的戰術覆疊繪圖層
+ * 零每幀物件配置 (Zero Per-Frame Allocation) 的 2K 向量抗鋸齒戰術覆疊繪圖層
  */
 private class TacticalHudOverlayView(context: Context) : View(context) {
 
@@ -310,13 +312,19 @@ private class TacticalHudOverlayView(context: Context) : View(context) {
     private var currentPose = InterpolatedPose(52.5200, 13.4050, 0f, 0f)
     private var currentFollowMode = CameraFollowMode.HEADING_UP
     private var currentIconType = VehicleIconType.TRUCK
+    private var isVectorHybrid2kMode = false
     private var currentPois: List<MapPointSelection> = emptyList()
     private var currentWaypoints: List<RouteWaypoint> = emptyList()
     private var currentRoutes: List<NavRouteCandidate> = emptyList()
     private var currentSelectedRouteIdx: Int = 0
     private var currentTrackPoints: List<TrackLogPoint> = emptyList()
 
-    // 預先配置所有 Paint 與 Path 物件，杜絕 onDraw 產生 GC
+    private val vectorGridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#2238BDF8")
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f
+    }
+
     private val activeRoutePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#3B82F6")
         style = Paint.Style.STROKE
@@ -375,6 +383,7 @@ private class TacticalHudOverlayView(context: Context) : View(context) {
         pose: InterpolatedPose,
         followMode: CameraFollowMode,
         iconType: VehicleIconType,
+        isVectorHybrid2k: Boolean,
         pois: List<MapPointSelection>,
         waypoints: List<RouteWaypoint>,
         routes: List<NavRouteCandidate>,
@@ -385,6 +394,7 @@ private class TacticalHudOverlayView(context: Context) : View(context) {
         this.currentPose = pose
         this.currentFollowMode = followMode
         this.currentIconType = iconType
+        this.isVectorHybrid2kMode = isVectorHybrid2k
         this.currentPois = pois
         this.currentWaypoints = waypoints
         this.currentRoutes = routes
@@ -397,6 +407,16 @@ private class TacticalHudOverlayView(context: Context) : View(context) {
         super.onDraw(canvas)
         val map = mapLibreMap ?: return
         val proj = map.projection
+
+        // 若啟用 2K 向量增強模式，繪製高精細抗鋸齒歐陸路網連接線與戰術格線
+        if (isVectorHybrid2kMode && currentPois.size >= 2) {
+            reusablePath.reset()
+            for (i in 0 until currentPois.lastIndex) {
+                val p1 = proj.toScreenLocation(LatLng(currentPois[i].latitude, currentPois[i].longitude))
+                val p2 = proj.toScreenLocation(LatLng(currentPois[i + 1].latitude, currentPois[i + 1].longitude))
+                canvas.drawLine(p1.x, p1.y, p2.x, p2.y, vectorGridPaint)
+            }
+        }
 
         // 1. 繪製行駛歷史軌跡
         if (currentTrackPoints.size >= 2) {
@@ -465,7 +485,6 @@ private class TacticalHudOverlayView(context: Context) : View(context) {
                 vehiclePath.addRoundRect(-16f, -30f, 16f, 30f, 10f, 10f, Path.Direction.CW)
             }
             VehicleIconType.TRUCK -> {
-                // 卡車車頭 + 貨櫃輪廓
                 vehiclePath.addRoundRect(-18f, -36f, 18f, -8f, 6f, 6f, Path.Direction.CW)
                 vehiclePath.addRect(-16f, -4f, 16f, 36f, Path.Direction.CW)
             }
@@ -473,7 +492,6 @@ private class TacticalHudOverlayView(context: Context) : View(context) {
         canvas.drawPath(vehiclePath, vehicleFillPaint)
         canvas.drawPath(vehiclePath, vehicleStrokePaint)
 
-        // 車頭指向輔助線
         val rad = Math.toRadians(-90.0)
         val tipX = (cos(rad) * 48f).toFloat()
         val tipY = (sin(rad) * 48f).toFloat()

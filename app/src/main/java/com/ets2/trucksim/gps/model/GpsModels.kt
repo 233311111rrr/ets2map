@@ -10,32 +10,55 @@
 package com.ets2.trucksim.gps.model
 
 /**
- * 分階段交付模式切換器 (2-1 至 2-4)
+ * 主畫面可長按自由拖曳移動的 UI 元件識別碼
  */
-enum class DeliveryStage(val code: String, val titleZh: String, val subtitleZh: String) {
-    STAGE_2_1("2-1", "階段 2-1：基礎連線與地圖", "連線記憶、德國隨機城市、卡車標記、時速與限速圓形、公美制切換"),
-    STAGE_2_2("2-2", "階段 2-2：高幀率與流暢度", "30~185/無限 FPS、DisplayMode 鎖定、低電量降幀、位置內插與 FPS 計數器"),
-    STAGE_2_3("2-3", "階段 2-3：路徑點與路網規劃", "點擊地圖/POI 彈窗、多路徑點排序、避開收費/渡輪、替代路線、車頭朝上"),
-    STAGE_2_4("2-4", "階段 2-4：台灣語音與遙測延伸", "台灣語音模組 2 (47音檔)、SCS_Map_Tiles 內建與 .zip 導入、貨運導航、油量/車損/疲勞提示")
+enum class HudWidgetId(
+    val labelZh: String,
+    val defaultXFraction: Float,
+    val defaultYFraction: Float
+) {
+    TOP_NAV_BANNER("頂部導航與遙測橫幅", 0.03f, 0.02f),
+    SPEED_CLUSTER("雙圓形時速與限速儀表", 0.03f, 0.78f),
+    QUICK_CONTROLS("右下角操作快捷列", 0.42f, 0.80f),
+    FPS_BADGE("即時 FPS 計數器膠囊", 0.82f, 0.14f)
 }
 
 /**
- * SCS_Map_Tiles (TsMap2) 地圖包來源模式
+ * UI 元件在螢幕上的相對比例座標 (0.0f ~ 1.0f)，確保跨手機/平板與橫直向自動適配
+ */
+data class HudWidgetOffset(
+    val xFraction: Float,
+    val yFraction: Float
+)
+
+/**
+ * 2K / 1080p 高畫質地圖來源模式
  */
 enum class MapTileSourceMode(val labelZh: String, val descZh: String) {
-    SCS_BUILTIN_AND_ZIP("APK 內建 SCS 地圖 + 自訂 .zip 索引", "優先讀取導入的 .zip 地圖包與 APK 內建 Unicor-p/SCS_Map_Tiles 圖磚"),
-    STAGE1_PC_SERVER("電腦端 PMTiles 伺服器", "使用第一階段電腦端 Node.js 提供的 PMTiles 向量圖磚")
+    SCS_2K_RETINA_AND_ZIP(
+        "2K 超清 SCS 地圖 (@2x 超採樣 + 自訂 .zip)",
+        "啟用 256dp @2x Retina 高像素密度渲染，結合 APK 內建 Zoom 0~5、雲端 Zoom 6~8 快取與自訂 .zip 索引"
+    ),
+    TRUCKER_MUDGEON_HYBRID_2K(
+        "2K/4K 向量增強高畫質模式 (TruckerMudgeon + SCS)",
+        "結合 2K 高清路網圖磚與向量道路抗鋸齒增強層，在平板與高解析手機上維持無損銳利度"
+    ),
+    STAGE1_PC_SERVER(
+        "電腦端 PMTiles 伺服器",
+        "使用第一階段電腦端 Node.js 提供的 PMTiles 圖磚"
+    )
 }
 
 /**
  * Unicor-p/SCS_Map_Tiles (TileMapInfo.json) 地圖包詮釋資料
  */
 data class ScsMapPackInfo(
-    val sourceLabel: String = "APK 內建 (Unicor-p/SCS_Map_Tiles)",
-    val zipFileName: String = "ETS2_Map_1.48.zip (內建基底 + GitHub Release)",
+    val sourceLabel: String = "APK 內建 2K 超清地圖 (Unicor-p/SCS_Map_Tiles)",
+    val zipFileName: String = "ETS2_Map_1.48.zip (2K @2x High-DPI + Zoom 0~8)",
     val gameId: String = "ets2",
     val gameName: String = "Euro Truck Simulator 2",
-    val mapVersion: String = "1.48.1.6 / 1.49.2",
+    val mapVersion: String = "1.48.1.6 / 1.49.2 (2K Enhanced)",
+    val resolutionQualityLabel: String = "2K UHD (@2x Retina, 最高 131072×131072 px)",
     val tileSize: Int = 512,
     val minZoom: Int = 0,
     val maxZoom: Int = 8,
@@ -43,7 +66,7 @@ data class ScsMapPackInfo(
     val x2: Double = 79370.13,
     val y1: Double = -80209.1641,
     val y2: Double = 93782.77,
-    val indexedTileCount: Int = 21,
+    val indexedTileCount: Int = 105,
     val isCustomZipLoaded: Boolean = false
 )
 
@@ -125,7 +148,7 @@ object DefaultGermanCities {
 }
 
 /**
- * 貨運任務資訊 (2-4 遙測延伸欄位)
+ * 貨運任務資訊
  */
 data class JobTelemetry(
     val active: Boolean = false,
@@ -141,7 +164,7 @@ data class JobTelemetry(
 )
 
 /**
- * 完整卡車遙測訊號（含第一階段基礎座標與 2-4 延伸欄位）
+ * 完整卡車遙測訊號
  */
 data class TruckTelemetryState(
     val hasGameData: Boolean = false,

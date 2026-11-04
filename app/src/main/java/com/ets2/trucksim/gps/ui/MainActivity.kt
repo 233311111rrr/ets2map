@@ -23,17 +23,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -69,7 +71,8 @@ import com.ets2.trucksim.gps.engine.TelemetryInterpolator
 import com.ets2.trucksim.gps.map.ScsTileMapManager
 import com.ets2.trucksim.gps.model.CameraFollowMode
 import com.ets2.trucksim.gps.model.ConnectionState
-import com.ets2.trucksim.gps.model.DeliveryStage
+import com.ets2.trucksim.gps.model.HudWidgetId
+import com.ets2.trucksim.gps.model.HudWidgetOffset
 import com.ets2.trucksim.gps.model.MapPointSelection
 import com.ets2.trucksim.gps.model.MapTileSourceMode
 import com.ets2.trucksim.gps.model.NavRouteCandidate
@@ -88,12 +91,10 @@ import kotlinx.coroutines.launch
 /**
  * ETS2 TruckSim GPS 主畫面 Activity
  *
- * 完整涵蓋 2-1 至 2-4 四個交付階段、APK 內建 Unicor-p/SCS_Map_Tiles、
- * 免解壓縮 .zip 地圖包導入入口與 47 個台灣導航語音檔：
- * - 啟動連線驗證、德國隨機初始城市、每隔數秒與離開 App 時保存最後座標
- * - 30 / 60 / 120 / 144 / 165 / 185 / 無限 FPS 刷新率控制與即時 FPS 計數器
- * - Choreographer 遙測位置與車頭方位角補間、MapLibre 原生渲染與背景 IO 分離
- * - 點擊地圖/POI 彈窗、多路徑點排序、避開收費與渡輪、替代路線、語音導航與延伸遙測提示
+ * - 全功能預設常駐開啟（已移除驗收階段切換器）
+ * - 主畫面所有浮動 UI 元件皆支援「長按後隨意拖曳移動」並自動依螢幕比例保存位置
+ * - 自動適配各種尺寸的手機、摺疊機與平板螢幕 (BoxWithConstraints 自適應縮放)
+ * - 內建 2K 超清 (@2x Retina) `Unicor-p/SCS_Map_Tiles` 地圖、免解壓 `.zip` 導入與 47 個台灣語音檔
  */
 class MainActivity : ComponentActivity() {
 
@@ -177,6 +178,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TruckSimGpsApp(
     activity: ComponentActivity,
@@ -193,9 +195,15 @@ private fun TruckSimGpsApp(
     var savedConfig by remember { mutableStateOf(prefsRepo.loadConfig()) }
     var hostInput by remember { mutableStateOf(savedConfig.host) }
     var portInput by remember { mutableStateOf(savedConfig.port.toString()) }
-    var activeStage by remember { mutableStateOf(savedConfig.activeStage) }
     var hasEnteredMapScreen by remember { mutableStateOf(false) }
-    var tileSourceMode by remember { mutableStateOf(MapTileSourceMode.SCS_BUILTIN_AND_ZIP) }
+    var tileSourceMode by remember { mutableStateOf(MapTileSourceMode.SCS_2K_RETINA_AND_ZIP) }
+
+    // 主畫面各個可長按移動 UI 元件的位置比例狀態
+    val hudOffsets = remember {
+        mutableStateMapOf<HudWidgetId, HudWidgetOffset>().apply {
+            putAll(prefsRepo.loadHudOffsets())
+        }
+    }
 
     val connectionState by serverClient.connectionState.collectAsState()
     val telemetry by serverClient.telemetryState.collectAsState()
@@ -240,7 +248,7 @@ private fun TruckSimGpsApp(
                 }
             }.getOrNull()
             scsTileMapManager.importMapZipFromUri(uri, fileName)
-            tileSourceMode = MapTileSourceMode.SCS_BUILTIN_AND_ZIP
+            tileSourceMode = MapTileSourceMode.SCS_2K_RETINA_AND_ZIP
         }
     }
 
@@ -248,7 +256,6 @@ private fun TruckSimGpsApp(
         mapZipPickerLauncher.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
     }
 
-    // 螢幕常亮控制
     LaunchedEffect(savedConfig.keepScreenOn) {
         if (savedConfig.keepScreenOn) {
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -257,7 +264,6 @@ private fun TruckSimGpsApp(
         }
     }
 
-    // 啟動 Choreographer 幀率控制與位置內插迴圈
     DisposableEffect(savedConfig.targetFps, savedConfig.lowBatteryFrameDrop, isLowBattery) {
         frameRateController.applyFrameRateOption(
             option = savedConfig.targetFps,
@@ -272,10 +278,9 @@ private fun TruckSimGpsApp(
         }
     }
 
-    // 當收到新遙測封包時，推入內插器並檢查語音事件
     LaunchedEffect(telemetry) {
         interpolator.onTelemetrySampleReceived(telemetry)
-        if (hasEnteredMapScreen && activeStage == DeliveryStage.STAGE_2_4) {
+        if (hasEnteredMapScreen) {
             if (trackHistory.size > 400) trackHistory.removeAt(0)
             trackHistory.add(
                 TrackLogPoint(
@@ -285,7 +290,6 @@ private fun TruckSimGpsApp(
                     timestampMs = telemetry.timestampMs
                 )
             )
-            // 超速時觸發台灣語音模組 2 的 SPEED_WARNING_BEEP_1.wav
             if (telemetry.speedLimitKmh > 0 && telemetry.speedKmh > telemetry.speedLimitKmh + 5f) {
                 voiceNavigator.triggerVoiceEvent(
                     eventKey = "SPEED_WARNING_BEEP_1",
@@ -297,7 +301,6 @@ private fun TruckSimGpsApp(
         }
     }
 
-    // 每隔 5 秒自動將卡車最後座標寫入本地
     LaunchedEffect(hasEnteredMapScreen) {
         while (hasEnteredMapScreen) {
             delay(5000L)
@@ -306,34 +309,30 @@ private fun TruckSimGpsApp(
         }
     }
 
-    // 計算路線與觸發語音提示
     fun recalculateRoutes() {
         if (waypoints.isEmpty()) {
             routeCandidates.clear()
             return
         }
         scope.launch {
-            val pts = buildList {
+            val pts = buildList<Pair<Double, Double>> {
                 add(Pair(interpolatedPose.latitude, interpolatedPose.longitude))
                 waypoints.forEach { add(Pair(it.latitude, it.longitude)) }
             }
             val routes = serverClient.calculateRoutes(pts, routingOptions)
             routeCandidates.clear()
             routeCandidates.addAll(routes)
-            if (activeStage == DeliveryStage.STAGE_2_4) {
-                routes.firstOrNull()?.let { primary ->
-                    voiceNavigator.triggerVoiceEvent(
-                        eventKey = primary.nextManeuverEventKey,
-                        distanceBucketMeters = primary.nextManeuverDistanceMeters,
-                        volume = savedConfig.voiceVolume,
-                        muted = savedConfig.voiceMuted
-                    )
-                }
+            routes.firstOrNull()?.let { primary ->
+                voiceNavigator.triggerVoiceEvent(
+                    eventKey = primary.nextManeuverEventKey,
+                    distanceBucketMeters = primary.nextManeuverDistanceMeters,
+                    volume = savedConfig.voiceVolume,
+                    muted = savedConfig.voiceMuted
+                )
             }
         }
     }
 
-    // 若尚未進入主地圖畫面，顯示啟動連線與 .zip 地圖導入畫面
     if (!hasEnteredMapScreen) {
         StartupConnectionScreen(
             hostInput = hostInput,
@@ -341,11 +340,6 @@ private fun TruckSimGpsApp(
             onHostChange = { hostInput = it },
             onPortChange = { portInput = it },
             connectionState = connectionState,
-            activeStage = activeStage,
-            onStageChange = {
-                activeStage = it
-                prefsRepo.saveActiveStage(it)
-            },
             scsMapPackInfo = scsMapPackInfo,
             mapImportStatusMessage = mapImportStatusMessage,
             onPickMapZipFile = launchZipPicker,
@@ -381,12 +375,17 @@ private fun TruckSimGpsApp(
         return
     }
 
-    // 根據遊戲內時間自動切換日夜模式 (06:00 ~ 19:00 為日間)
     val hourOfDay = (telemetry.gameTimeMinutes / 60) % 24
     val isNightMode = hourOfDay < 6 || hourOfDay >= 19
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 底層：MapLibre Native 高幀率地圖 (支援 APK 內建/自訂 .zip SCS_Map_Tiles 與電腦端 PMTiles)
+    // 主地圖畫面：使用 BoxWithConstraints 自動適配各種手機/平板尺寸，且所有 UI 元件皆可長按自由拖曳移動
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val parentWidthPx = with(density) { maxWidth.toPx() }
+        val parentHeightPx = with(density) { maxHeight.toPx() }
+        val metrics = rememberAdaptiveScreenMetrics(maxWidth, maxHeight)
+
+        // 底層：MapLibre Native 2K 超清 (@2x Retina) 地圖
         MapLibreNavigationView(
             serverHttpBaseUrl = serverClient.getServerHttpBaseUrl(),
             scsLocalTileUrlTemplate = scsTileMapManager.getLocalTileUrlTemplate(),
@@ -407,90 +406,62 @@ private fun TruckSimGpsApp(
                 }
             },
             onMapOrPoiTapped = { selection ->
-                if (activeStage.ordinal >= DeliveryStage.STAGE_2_3.ordinal) {
-                    activeMapSelection = selection
-                }
+                activeMapSelection = selection
             }
         )
 
-        // 頂部導航狀態列與連線狀態指示器
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xE6161B26), RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFF262F40), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    val statusText = when (val st = connectionState) {
-                        is ConnectionState.Connected -> "已連線 (${st.host}:${st.port}) • ${scsMapPackInfo.zipFileName}"
-                        is ConnectionState.Reconnecting -> "斷線自動重連中 (第 ${st.attempt} 次)..."
-                        else -> "內建離線地圖模式 • ${scsMapPackInfo.zipFileName}"
-                    }
-                    Text(
-                        text = statusText,
-                        color = if (connectionState is ConnectionState.Connected) Color(0xFF10B981) else Color(0xFFF59E0B),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    val activeRoute = routeCandidates.getOrNull(routingOptions.selectedAlternativeIndex)
-                    Text(
-                        text = activeRoute?.nextManeuverTextZh
-                            ?: if (telemetry.hasGameData) "即時遙測跟隨中" else "等待遊戲數據（顯示本地保存/德國預設座標）",
-                        color = Color(0xFFF8FAFC),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+        // 可長按自由移動元件 1：頂部導航狀態列與延伸遙測提示卡
+        val topNavOffset = hudOffsets[HudWidgetId.TOP_NAV_BANNER]
+            ?: HudWidgetOffset(HudWidgetId.TOP_NAV_BANNER.defaultXFraction, HudWidgetId.TOP_NAV_BANNER.defaultYFraction)
 
-                // 2-2 即時 FPS 計數器徽章
-                if (activeStage.ordinal >= DeliveryStage.STAGE_2_2.ordinal && savedConfig.showFpsCounter) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFF0B0E14))
-                            .border(1.dp, Color(0xFF10B981), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
+        DraggableHudWidget(
+            widgetId = HudWidgetId.TOP_NAV_BANNER,
+            offsetFraction = topNavOffset,
+            parentWidthPx = parentWidthPx,
+            parentHeightPx = parentHeightPx,
+            onOffsetCommitted = { id, newOffset ->
+                hudOffsets[id] = newOffset
+                prefsRepo.saveHudOffset(id, newOffset)
+            },
+            modifier = Modifier.widthIn(max = metrics.maxCardWidth)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(if (metrics.isTabletOrWide) 0.56f else 0.94f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xE6161B26), RoundedCornerShape(12.dp))
+                        .border(1.dp, Color(0xFF262F40), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        val statusText = when (val st = connectionState) {
+                            is ConnectionState.Connected -> "已連線 (${st.host}:${st.port}) • 2K @2x 超清"
+                            is ConnectionState.Reconnecting -> "斷線自動重連中 (第 ${st.attempt} 次)..."
+                            else -> "2K 內建地圖模式 • 長按任意 UI 可自由移動"
+                        }
                         Text(
-                            text = "$measuredFps FPS",
-                            color = Color(0xFF10B981),
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            text = statusText,
+                            color = if (connectionState is ConnectionState.Connected) Color(0xFF10B981) else Color(0xFF38BDF8),
+                            fontSize = (11f * metrics.uiScale).sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        val activeRoute = routeCandidates.getOrNull(routingOptions.selectedAlternativeIndex)
+                        Text(
+                            text = activeRoute?.nextManeuverTextZh
+                                ?: if (telemetry.hasGameData) "即時遙測導航中" else "等待遊戲數據（顯示本地保存/德國預設座標）",
+                            color = Color(0xFFF8FAFC),
+                            fontSize = (15f * metrics.uiScale).sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
                 }
 
-                // 階段切換快捷鈕
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF3B82F6))
-                        .clickable {
-                            val nextIdx = (activeStage.ordinal + 1) % DeliveryStage.values().size
-                            val nextStage = DeliveryStage.values()[nextIdx]
-                            activeStage = nextStage
-                            prefsRepo.saveActiveStage(nextStage)
-                        }
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
-                ) {
-                    Text(activeStage.code, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-
-            // 2-4 延伸遙測橫幅（貨運導航、低油量、車損、疲勞休息）
-            if (activeStage == DeliveryStage.STAGE_2_4) {
                 ExtendedTelemetryAlertsPanel(
                     telemetry = telemetry,
                     onNavigateToJobDestination = {
@@ -518,86 +489,144 @@ private fun TruckSimGpsApp(
             }
         }
 
-        // 左下角：雙圓形時速與限速徽章（點擊切換 km/h 與 mph）
-        DualCircularSpeedCluster(
-            speedKmh = interpolatedPose.speedKmh,
-            speedLimitKmh = telemetry.speedLimitKmh,
-            speedUnit = savedConfig.speedUnit,
-            onToggleUnit = {
-                val nextUnit = if (savedConfig.speedUnit == SpeedUnit.KMH) SpeedUnit.MPH else SpeedUnit.KMH
-                savedConfig = savedConfig.copy(speedUnit = nextUnit)
-                prefsRepo.saveSpeedUnit(nextUnit)
-            },
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = 20.dp)
-        )
+        // 可長按自由移動元件 2：獨立 FPS 計數器膠囊
+        if (savedConfig.showFpsCounter) {
+            val fpsOffset = hudOffsets[HudWidgetId.FPS_BADGE]
+                ?: HudWidgetOffset(HudWidgetId.FPS_BADGE.defaultXFraction, HudWidgetId.FPS_BADGE.defaultYFraction)
 
-        // 右下角：回到卡車、車頭/北方朝上、導入 .zip 地圖、路徑點清單、設定按鈕
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 20.dp),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (followMode == CameraFollowMode.FREE_PAN) {
-                Button(
-                    onClick = { followMode = CameraFollowMode.HEADING_UP },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
+            DraggableHudWidget(
+                widgetId = HudWidgetId.FPS_BADGE,
+                offsetFraction = fpsOffset,
+                parentWidthPx = parentWidthPx,
+                parentHeightPx = parentHeightPx,
+                onOffsetCommitted = { id, newOffset ->
+                    hudOffsets[id] = newOffset
+                    prefsRepo.saveHudOffset(id, newOffset)
+                }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xE60B0E14))
+                        .border(1.dp, Color(0xFF10B981), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    Text("回到卡車", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "$measuredFps FPS • 2K",
+                        color = Color(0xFF10B981),
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = (12f * metrics.uiScale).sp
+                    )
                 }
             }
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = {
-                        followMode = if (followMode == CameraFollowMode.HEADING_UP) {
-                            CameraFollowMode.NORTH_UP
-                        } else {
-                            CameraFollowMode.HEADING_UP
-                        }
-                    },
-                    modifier = Modifier.background(Color(0xD9161B26), RoundedCornerShape(20.dp))
-                ) {
-                    Text(followMode.labelZh, color = Color.White, fontSize = 12.sp)
+        // 可長按自由移動元件 3：雙圓形時速與限速儀表
+        val speedOffset = hudOffsets[HudWidgetId.SPEED_CLUSTER]
+            ?: HudWidgetOffset(HudWidgetId.SPEED_CLUSTER.defaultXFraction, HudWidgetId.SPEED_CLUSTER.defaultYFraction)
+
+        DraggableHudWidget(
+            widgetId = HudWidgetId.SPEED_CLUSTER,
+            offsetFraction = speedOffset,
+            parentWidthPx = parentWidthPx,
+            parentHeightPx = parentHeightPx,
+            onOffsetCommitted = { id, newOffset ->
+                hudOffsets[id] = newOffset
+                prefsRepo.saveHudOffset(id, newOffset)
+            }
+        ) {
+            DualCircularSpeedCluster(
+                speedKmh = interpolatedPose.speedKmh,
+                speedLimitKmh = telemetry.speedLimitKmh,
+                speedUnit = savedConfig.speedUnit,
+                metrics = metrics,
+                onToggleUnit = {
+                    val nextUnit = if (savedConfig.speedUnit == SpeedUnit.KMH) SpeedUnit.MPH else SpeedUnit.KMH
+                    savedConfig = savedConfig.copy(speedUnit = nextUnit)
+                    prefsRepo.saveSpeedUnit(nextUnit)
+                }
+            )
+        }
+
+        // 可長按自由移動元件 4：右下角操作快捷列（回到卡車、視角、導入.zip、路徑點、設定）
+        val controlsOffset = hudOffsets[HudWidgetId.QUICK_CONTROLS]
+            ?: HudWidgetOffset(HudWidgetId.QUICK_CONTROLS.defaultXFraction, HudWidgetId.QUICK_CONTROLS.defaultYFraction)
+
+        DraggableHudWidget(
+            widgetId = HudWidgetId.QUICK_CONTROLS,
+            offsetFraction = controlsOffset,
+            parentWidthPx = parentWidthPx,
+            parentHeightPx = parentHeightPx,
+            onOffsetCommitted = { id, newOffset ->
+                hudOffsets[id] = newOffset
+                prefsRepo.saveHudOffset(id, newOffset)
+            }
+        ) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (followMode == CameraFollowMode.FREE_PAN) {
+                    Button(
+                        onClick = { followMode = CameraFollowMode.HEADING_UP },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
+                    ) {
+                        Text("回到卡車", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                    }
                 }
 
-                OutlinedButton(
-                    onClick = launchZipPicker,
-                    modifier = Modifier.background(Color(0xD9161B26), RoundedCornerShape(20.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("導入.zip地圖", color = Color(0xFF6EE7B7), fontSize = 12.sp)
-                }
+                    OutlinedButton(
+                        onClick = {
+                            followMode = if (followMode == CameraFollowMode.HEADING_UP) {
+                                CameraFollowMode.NORTH_UP
+                            } else {
+                                CameraFollowMode.HEADING_UP
+                            }
+                        },
+                        modifier = Modifier.background(Color(0xD9161B26), RoundedCornerShape(20.dp))
+                    ) {
+                        Text(followMode.labelZh, color = Color.White, fontSize = 12.sp)
+                    }
 
-                if (activeStage.ordinal >= DeliveryStage.STAGE_2_3.ordinal) {
+                    OutlinedButton(
+                        onClick = launchZipPicker,
+                        modifier = Modifier.background(Color(0xD9161B26), RoundedCornerShape(20.dp))
+                    ) {
+                        Text("導入.zip地圖", color = Color(0xFF6EE7B7), fontSize = 12.sp)
+                    }
+
                     OutlinedButton(
                         onClick = { showWaypointSheet = !showWaypointSheet },
                         modifier = Modifier.background(Color(0xD9161B26), RoundedCornerShape(20.dp))
                     ) {
                         Text("路徑點 (${waypoints.size})", color = Color.White, fontSize = 12.sp)
                     }
-                }
 
-                OutlinedButton(
-                    onClick = { showSettingsSheet = !showSettingsSheet },
-                    modifier = Modifier.background(Color(0xD9161B26), RoundedCornerShape(20.dp))
-                ) {
-                    Text("設定", color = Color.White, fontSize = 12.sp)
+                    OutlinedButton(
+                        onClick = { showSettingsSheet = !showSettingsSheet },
+                        modifier = Modifier.background(Color(0xD9161B26), RoundedCornerShape(20.dp))
+                    ) {
+                        Text("設定", color = Color.White, fontSize = 12.sp)
+                    }
                 }
             }
         }
 
-        // 點擊地圖或地標彈出的小視窗
+        // 點擊地圖或地標彈出的小視窗（平板與手機自適應置中）
         activeMapSelection?.let { sel ->
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 96.dp)
+                    .padding(horizontal = 16.dp, vertical = 88.dp)
             ) {
                 MapTapActionDialog(
                     selection = sel,
+                    maxCardWidth = metrics.maxCardWidth,
                     onAddWaypoint = { pt ->
                         waypoints.add(
                             RouteWaypoint(
@@ -642,13 +671,18 @@ private fun TruckSimGpsApp(
             }
         }
 
-        // 路徑點排序與路線規劃抽屜
+        // 路徑點排序與路線規劃抽屜（平板/橫向自動靠右或置中不滿版）
         if (showWaypointSheet) {
-            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            Box(
+                modifier = Modifier.align(
+                    if (metrics.isTabletOrWide) Alignment.BottomEnd else Alignment.BottomCenter
+                )
+            ) {
                 WaypointAndRoutingSheet(
                     waypoints = waypoints,
                     routingOptions = routingOptions,
                     routeCandidates = routeCandidates,
+                    maxCardWidth = metrics.maxCardWidth,
                     onMoveWaypointUp = { index ->
                         if (index > 0) {
                             val item = waypoints.removeAt(index)
@@ -683,9 +717,13 @@ private fun TruckSimGpsApp(
             }
         }
 
-        // 系統設定、地圖包導入與台灣語音模組 2 對照表面板
+        // 系統設定、UI 位置重置、2K 地圖包與台灣語音模組 2 對照表面板
         if (showSettingsSheet) {
-            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            Box(
+                modifier = Modifier.align(
+                    if (metrics.isTabletOrWide) Alignment.BottomEnd else Alignment.BottomCenter
+                )
+            ) {
                 SettingsAndVoiceSheet(
                     config = savedConfig,
                     deviceMaxRefreshHz = frameRateController.maxSupportedRefreshRateHz,
@@ -694,6 +732,7 @@ private fun TruckSimGpsApp(
                     mapImportStatusMessage = mapImportStatusMessage,
                     voiceEntries = voiceEntries,
                     missingVoiceNotice = missingVoiceNotice,
+                    maxCardWidth = metrics.maxCardWidth,
                     onSelectTargetFps = { fpsOpt ->
                         savedConfig = savedConfig.copy(targetFps = fpsOpt)
                         prefsRepo.saveTargetFps(fpsOpt)
@@ -719,6 +758,11 @@ private fun TruckSimGpsApp(
                     },
                     onPickMapZipFile = launchZipPicker,
                     onResetBuiltInMap = { scsTileMapManager.resetToBuiltInMap() },
+                    onResetHudPositions = {
+                        val resetMap = prefsRepo.resetHudOffsets()
+                        hudOffsets.clear()
+                        hudOffsets.putAll(resetMap)
+                    },
                     onVoiceVolumeChange = { vol ->
                         savedConfig = savedConfig.copy(voiceVolume = vol)
                         prefsRepo.saveVoiceSettings(vol, savedConfig.voiceMuted)
