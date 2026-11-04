@@ -1,6 +1,6 @@
 {
-  "summary": "整合 Unicor-p/SCS_Map_Tiles 第三方 ETS2 地圖寫入 APK、免解壓縮 .zip 地圖包導入入口與索引引擎 (ScsTileMapManager)，以及 etsmod.zip 47 個台灣導航語音檔完整部署計畫。",
-  "updatedAt": "2026-11-04T01:23:26.087976594Z",
+  "summary": "修復主畫面 UI 長按後閃一下即中斷拖曳的 Bug：移除 pointerInput 與 remember 對 widgetSize 的重新啟動依賴，改用 PointerEventPass.Initial 長按拖曳攔截與零尺寸變動視覺外框，確保長按任意位置與按鈕區皆可流暢拖動。",
+  "updatedAt": "2026-11-04T05:49:36.245229488Z",
   "requestFeedback": true,
   "userFacing": true
 }

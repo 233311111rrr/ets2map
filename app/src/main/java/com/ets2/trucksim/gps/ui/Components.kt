@@ -12,7 +12,8 @@ package com.ets2.trucksim.gps.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -42,16 +43,25 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
@@ -78,6 +88,8 @@ import com.ets2.trucksim.gps.model.TargetFpsOption
 import com.ets2.trucksim.gps.model.TruckTelemetryState
 import com.ets2.trucksim.gps.model.VehicleIconType
 import com.ets2.trucksim.gps.model.VoiceMappingEntry
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /**
@@ -113,11 +125,15 @@ fun rememberAdaptiveScreenMetrics(maxWidth: Dp, maxHeight: Dp): AdaptiveScreenMe
 }
 
 /**
- * 可長按自由拖曳移動的 HUD 容器 (`detectDragGesturesAfterLongPress`)
+ * 穩定不中斷的可長按自由拖曳 HUD 容器 (`DraggableHudWidget`)
  *
- * - 長按後觸發震動回饋並亮起藍色拖曳邊框與元件名稱提示
- * - 自動限制在父容器畫面範圍內，避免拖出手機/平板螢幕外
- * - 放開手指時自動以相對螢幕比例 `(0.0f..1.0f)` 保存位置，橫直向旋轉依然精準對位
+ * 修正重點：
+ * 1. `pointerInput(widgetId)` 僅以 `widgetId` 為唯一固定 Key，搭配 `rememberUpdatedState` 讀取父容器與元件尺寸，
+ *    徹底杜絕拖曳開始時因狀態或尺寸更新導致 `pointerInput` 手勢協程被重啟（不會再閃一下就消失）。
+ * 2. 使用 `PointerEventPass.Initial` 階段攔截長按（按住滿 320ms）：
+ *    - 短按 (<320ms) 完全不攔截，讓內部按鈕（設定、路徑點、切換單位等）100% 正常點擊。
+ *    - 長按 (>=320ms) 後立即在 `Initial` 階段接管並消費所有移動事件 (`change.consume()`)，即使手指按在按鈕上也能絲滑拖動。
+ * 3. 使用 `drawWithContent` 與 `graphicsLayer` 繪製高亮天藍色拖曳外框與微幅放大效果，**不改變元件實際排版尺寸 (Zero Layout Shift)**。
  */
 @Composable
 fun DraggableHudWidget(
@@ -130,79 +146,141 @@ fun DraggableHudWidget(
     content: @Composable () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    var widgetSize by remember { mutableStateOf(IntSize.Zero) }
-    var isDragging by remember { mutableStateOf(false) }
+    var widgetSize by remember(widgetId) { mutableStateOf(IntSize.Zero) }
+    var isDragging by remember(widgetId) { mutableStateOf(false) }
 
     val safeParentW = parentWidthPx.coerceAtLeast(1f)
     val safeParentH = parentHeightPx.coerceAtLeast(1f)
-    val maxOffsetX = (safeParentW - widgetSize.width).coerceAtLeast(0f)
-    val maxOffsetY = (safeParentH - widgetSize.height).coerceAtLeast(0f)
 
-    var dragX by remember(offsetFraction.xFraction, safeParentW, widgetSize.width) {
-        mutableStateOf((offsetFraction.xFraction * safeParentW).coerceIn(0f, maxOffsetX))
+    var dragX by remember(widgetId) {
+        mutableFloatStateOf(offsetFraction.xFraction * safeParentW)
     }
-    var dragY by remember(offsetFraction.yFraction, safeParentH, widgetSize.height) {
-        mutableStateOf((offsetFraction.yFraction * safeParentH).coerceIn(0f, maxOffsetY))
+    var dragY by remember(widgetId) {
+        mutableFloatStateOf(offsetFraction.yFraction * safeParentH)
     }
+
+    // 僅在非拖曳狀態下（如外部按下「重置 UI 位置」或旋轉螢幕時）同步外部比例座標
+    LaunchedEffect(offsetFraction.xFraction, offsetFraction.yFraction, safeParentW, safeParentH) {
+        if (!isDragging) {
+            val maxW = (safeParentW - widgetSize.width).coerceAtLeast(0f)
+            val maxH = (safeParentH - widgetSize.height).coerceAtLeast(0f)
+            dragX = (offsetFraction.xFraction * safeParentW).coerceIn(0f, if (maxW > 0f) maxW else safeParentW)
+            dragY = (offsetFraction.yFraction * safeParentH).coerceIn(0f, if (maxH > 0f) maxH else safeParentH)
+        }
+    }
+
+    val currentParentW by rememberUpdatedState(safeParentW)
+    val currentParentH by rememberUpdatedState(safeParentH)
+    val currentWidgetSize by rememberUpdatedState(widgetSize)
+    val currentOnCommit by rememberUpdatedState(onOffsetCommitted)
+    val currentHaptic by rememberUpdatedState(haptic)
 
     Box(
         modifier = modifier
             .offset { IntOffset(dragX.roundToInt(), dragY.roundToInt()) }
-            .onSizeChanged { widgetSize = it }
-            .pointerInput(widgetId, safeParentW, safeParentH, widgetSize) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        isDragging = true
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    },
-                    onDragEnd = {
+            .onSizeChanged { newSize ->
+                widgetSize = newSize
+                if (!isDragging && newSize.width > 0 && newSize.height > 0) {
+                    val maxW = (currentParentW - newSize.width).coerceAtLeast(0f)
+                    val maxH = (currentParentH - newSize.height).coerceAtLeast(0f)
+                    dragX = dragX.coerceIn(0f, maxW)
+                    dragY = dragY.coerceIn(0f, maxH)
+                }
+            }
+            .graphicsLayer {
+                scaleX = if (isDragging) 1.04f else 1.0f
+                scaleY = if (isDragging) 1.04f else 1.0f
+                alpha = if (isDragging) 0.94f else 1.0f
+            }
+            .drawWithContent {
+                drawContent()
+                if (isDragging) {
+                    drawRoundRect(
+                        color = Color(0x3838BDF8),
+                        cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = Color(0xFF38BDF8),
+                        cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx()),
+                        style = Stroke(width = 3.dp.toPx())
+                    )
+                }
+            }
+            .pointerInput(widgetId) {
+                val touchSlopPx = viewConfiguration.touchSlop
+                val longPressTimeoutMs = 320L
+
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val pointerId = down.id
+                    val startPos = down.position
+                    var cancelledBeforeLongPress = false
+
+                    // 等待 320ms 判定是否為長按；若期間手指抬起或大幅滑動則視為一般點擊/地圖手勢
+                    val releasedOrMovedEarly = withTimeoutOrNull(longPressTimeoutMs) {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == pointerId }
+                            if (change == null || !change.pressed) {
+                                cancelledBeforeLongPress = true
+                                break
+                            }
+                            val movedDist = hypot(
+                                change.position.x - startPos.x,
+                                change.position.y - startPos.y
+                            )
+                            if (movedDist > touchSlopPx * 1.5f) {
+                                cancelledBeforeLongPress = true
+                                break
+                            }
+                        }
+                        true
+                    }
+
+                    if (releasedOrMovedEarly != null || cancelledBeforeLongPress) {
+                        return@awaitEachGesture
+                    }
+
+                    // 已滿 320ms 且手指仍按住：正式進入長按自由拖曳模式！
+                    isDragging = true
+                    currentHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+
+                            if (!change.pressed) {
+                                change.consume()
+                                break
+                            }
+
+                            val delta = change.positionChange()
+                            if (delta.x != 0f || delta.y != 0f) {
+                                val limitX = (currentParentW - currentWidgetSize.width).coerceAtLeast(0f)
+                                val limitY = (currentParentH - currentWidgetSize.height).coerceAtLeast(0f)
+                                dragX = (dragX + delta.x).coerceIn(0f, limitX)
+                                dragY = (dragY + delta.y).coerceIn(0f, limitY)
+                            }
+                            // 在 Initial 階段消費事件，防止底下的子按鈕誤觸或中斷拖曳
+                            event.changes.forEach { it.consume() }
+                        }
+                    } finally {
                         isDragging = false
-                        onOffsetCommitted(
+                        val pW = currentParentW.coerceAtLeast(1f)
+                        val pH = currentParentH.coerceAtLeast(1f)
+                        currentOnCommit(
                             widgetId,
                             HudWidgetOffset(
-                                xFraction = (dragX / safeParentW).coerceIn(0f, 0.94f),
-                                yFraction = (dragY / safeParentH).coerceIn(0f, 0.94f)
+                                xFraction = (dragX / pW).coerceIn(0f, 0.94f),
+                                yFraction = (dragY / pH).coerceIn(0f, 0.94f)
                             )
                         )
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val limitX = (safeParentW - widgetSize.width).coerceAtLeast(0f)
-                        val limitY = (safeParentH - widgetSize.height).coerceAtLeast(0f)
-                        dragX = (dragX + dragAmount.x).coerceIn(0f, limitX)
-                        dragY = (dragY + dragAmount.y).coerceIn(0f, limitY)
                     }
-                )
-            }
-            .then(
-                if (isDragging) {
-                    Modifier
-                        .border(2.dp, Color(0xFF38BDF8), RoundedCornerShape(14.dp))
-                        .background(Color(0x3338BDF8), RoundedCornerShape(14.dp))
-                        .padding(2.dp)
-                } else {
-                    Modifier
                 }
-            )
-    ) {
-        Column {
-            if (isDragging) {
-                Text(
-                    text = "✥ 拖曳移動中：${widgetId.labelZh}",
-                    color = Color(0xFF38BDF8),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .background(Color(0xE60B0E14), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-                Spacer(modifier = Modifier.height(2.dp))
             }
-            content()
-        }
+    ) {
+        content()
     }
 }
 
@@ -461,7 +539,7 @@ fun ScsMapPackCard(
 }
 
 /**
- * 2. 雙圓形時速與限速徽章（自動適配手機/平板尺寸，點擊切換 km/h 與 mph、長按可拖曳移動）
+ * 2. 雙圓形時速與限速徽章（自動適配手機/平板尺寸，短按切換 km/h 與 mph、長按 0.3 秒可隨意拖曳移動）
  */
 @Composable
 fun DualCircularSpeedCluster(
@@ -731,7 +809,7 @@ private fun AlertStrip(
 }
 
 /**
- * 5. 多路徑點排序清單与路線偏好面板（平板與橫向螢幕自動限制最佳閱讀寬度）
+ * 5. 多路徑點排序清單與路線偏好面板（平板與橫向螢幕自動限制最佳閱讀寬度）
  */
 @Composable
 fun WaypointAndRoutingSheet(
@@ -957,7 +1035,7 @@ fun SettingsAndVoiceSheet(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "長按主畫面的時速圓形、導航列、FPS 或按鈕列即可隨意拖曳位置並自動記憶",
+                    text = "按住主畫面的時速圓形、導航列、FPS 或按鈕列約 0.3 秒即可隨意拖曳位置並自動記憶",
                     color = Color(0xFF94A3B8),
                     fontSize = 11.sp
                 )
