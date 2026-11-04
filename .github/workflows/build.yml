@@ -7,6 +7,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-apk:
     runs-on: ubuntu-24.04
@@ -23,8 +26,13 @@ jobs:
 
       - name: Set up Android SDK 34
         run: |
-          yes | sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          set +o pipefail
+          yes | sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
+          set -o pipefail
+          sudo $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          sudo mkdir -p /home/runner/.config/.android /home/runner/.android
+          sudo chown -R runner:runner /home/runner/.config /home/runner/.android
+          sudo chmod -R 777 /home/runner/.config/.android /home/runner/.android
 
       - name: Download Unicor-p/SCS_Map_Tiles ETS2_Map_1.48.zip into APK Assets
         run: |
